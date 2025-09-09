@@ -10,6 +10,7 @@ const GangTracker = require("./src/GangTracker");
 const GangMonitor = require("./src/GangMonitor");
 const cron = require("cron");
 const config = require("./config");
+const express = require("express");
 
 class DiscordGangBot {
   constructor() {
@@ -736,3 +737,15 @@ class DiscordGangBot {
 // Start the bot
 const bot = new DiscordGangBot();
 bot.start();
+
+// ==================== Express keep-alive server =====================
+const app = express();
+const port = process.env.PORT || 10000;
+
+app.get("/", (req, res) => {
+  res.send("✅ Discord Gang Tracker is running");
+});
+
+app.listen(port, "0.0.0.0", () => {
+  console.log(`🌐 Express server listening on 0.0.0.0:${port}`);
+});
