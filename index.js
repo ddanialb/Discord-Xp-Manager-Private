@@ -37,6 +37,17 @@ class DiscordGangBot {
     this.client.on("interactionCreate", async (interaction) => {
       if (!interaction.isChatInputCommand()) return;
 
+      // Attempt to defer immediately to avoid token expiry on cold starts
+      try {
+        if (!interaction.deferred && !interaction.replied) {
+          await interaction.deferReply().catch((error) => {
+            console.error("❌ Failed to defer reply:", error);
+          });
+        }
+      } catch (err) {
+        console.error("❌ Error during initial defer:", err);
+      }
+
       try {
         switch (interaction.commandName) {
           case "gangs":
@@ -155,7 +166,10 @@ class DiscordGangBot {
 
   async handleGangsCommand(interaction) {
     try {
-      await interaction.deferReply();
+      // Defer only if not already deferred by the global handler
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply();
+      }
 
       // Show loading message
       const loadingEmbed = new EmbedBuilder()
@@ -212,7 +226,11 @@ class DiscordGangBot {
         .setFooter({ text: "By Agha Dani" });
 
       try {
-        await interaction.editReply({ embeds: [errorEmbed] });
+        if (interaction.deferred || interaction.replied) {
+          await interaction.editReply({ embeds: [errorEmbed] });
+        } else {
+          await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+        }
       } catch (replyError) {
         console.error("❌ Error sending error reply:", replyError);
       }
@@ -221,7 +239,9 @@ class DiscordGangBot {
 
   async handleGangsUpdateCommand(interaction) {
     try {
-      await interaction.deferReply();
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply();
+      }
 
       const action = interaction.options.getString("action");
 
@@ -281,9 +301,18 @@ class DiscordGangBot {
     } catch (error) {
       console.error("❌ Error in handleGangsUpdateCommand:", error);
       try {
-        await interaction.editReply({
-          content: "❌ Failed to control auto-update. Please try again later.",
-        });
+        if (interaction.deferred || interaction.replied) {
+          await interaction.editReply({
+            content:
+              "❌ Failed to control auto-update. Please try again later.",
+          });
+        } else {
+          await interaction.reply({
+            content:
+              "❌ Failed to control auto-update. Please try again later.",
+            ephemeral: true,
+          });
+        }
       } catch (replyError) {
         console.error("❌ Error sending error reply:", replyError);
       }
@@ -536,7 +565,9 @@ class DiscordGangBot {
     const action = interaction.options.getString("action");
 
     try {
-      await interaction.reply({ ephemeral: true });
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply({ ephemeral: true });
+      }
 
       switch (action) {
         case "health":
@@ -558,15 +589,32 @@ class DiscordGangBot {
     } catch (error) {
       console.error("❌ Error handling datamanager command:", error);
       try {
-        await interaction.editReply({
-          embeds: [
-            new EmbedBuilder()
-              .setTitle("❌ Error")
-              .setDescription("An error occurred while processing the request.")
-              .setColor(0xff0000)
-              .setFooter({ text: "By Agha Dani" }),
-          ],
-        });
+        if (interaction.deferred || interaction.replied) {
+          await interaction.editReply({
+            embeds: [
+              new EmbedBuilder()
+                .setTitle("❌ Error")
+                .setDescription(
+                  "An error occurred while processing the request."
+                )
+                .setColor(0xff0000)
+                .setFooter({ text: "By Agha Dani" }),
+            ],
+          });
+        } else {
+          await interaction.reply({
+            embeds: [
+              new EmbedBuilder()
+                .setTitle("❌ Error")
+                .setDescription(
+                  "An error occurred while processing the request."
+                )
+                .setColor(0xff0000)
+                .setFooter({ text: "By Agha Dani" }),
+            ],
+            ephemeral: true,
+          });
+        }
       } catch (editError) {
         console.error("❌ Error editing reply:", editError);
       }

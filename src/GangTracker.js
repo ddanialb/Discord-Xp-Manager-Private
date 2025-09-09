@@ -292,7 +292,14 @@ class GangTracker {
         now.getFullYear() !== lastReset.getFullYear());
 
     if (shouldReset) {
-      this.dailyXp = [];
+      // Reset all daily XP data including task-specific counters
+      this.dailyXp.forEach((gang) => {
+        gang.totalXp = 0;
+        gang.task1Completed = false;
+        gang.task2Completed = false;
+        gang.task1Xp = 0;
+        gang.task2Xp = 0;
+      });
       this.lastResetDate = now;
       this.saveDailyXpData();
       console.log("🔄 Daily XP reset");
@@ -342,20 +349,26 @@ class GangTracker {
             totalXp: 0,
             task1Completed: false,
             task2Completed: false,
+            task1Xp: 0,
+            task2Xp: 0,
           };
           this.dailyXp.push(gangDailyXp);
         }
 
         gangDailyXp.totalXp += change.xpChange;
 
-        // Check task completion
+        // Check task completion based on time and exact XP amount
         const now = new Date();
         const hour = now.getHours();
 
-        if (change.xpChange >= 500) {
+        if (change.xpChange === 500) {
           if (hour >= 7 && hour < 18) {
+            // Task 1 time (7 AM - 6 PM) - exactly 500 XP
+            gangDailyXp.task1Xp += change.xpChange;
             gangDailyXp.task1Completed = true;
           } else {
+            // Task 2 time (6 PM - 7 AM) - exactly 500 XP
+            gangDailyXp.task2Xp += change.xpChange;
             gangDailyXp.task2Completed = true;
           }
         }
@@ -408,6 +421,8 @@ class GangTracker {
         weeklyXp: weeklyXpData ? weeklyXpData.totalXp : 0,
         task1Completed: dailyXpData ? dailyXpData.task1Completed : false,
         task2Completed: dailyXpData ? dailyXpData.task2Completed : false,
+        task1Xp: dailyXpData ? dailyXpData.task1Xp : 0,
+        task2Xp: dailyXpData ? dailyXpData.task2Xp : 0,
       };
     });
   }
@@ -419,6 +434,8 @@ class GangTracker {
         totalXp: 0,
         task1Completed: false,
         task2Completed: false,
+        task1Xp: 0,
+        task2Xp: 0,
       }
     );
   }
