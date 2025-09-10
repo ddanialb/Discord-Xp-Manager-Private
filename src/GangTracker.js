@@ -183,6 +183,9 @@ class GangTracker {
 
       await this.saveGangData();
 
+      // Always check for resets, regardless of changes
+      this.checkAllResets();
+
       const changes = this.compareGangDataWithOld(newGangs, oldGangs);
       if (changes.length > 0) {
         console.log(
@@ -314,6 +317,18 @@ class GangTracker {
     return changes;
   }
 
+  checkAllResets() {
+    // Log current Iran time for debugging
+    const now = new Date();
+    const iranTime = new Date(now.getTime() + 3.5 * 60 * 60 * 1000);
+    console.log(`🕐 Current Iran time: ${iranTime.toLocaleString()}`);
+
+    // Check all types of resets
+    this.checkDailyReset();
+    this.checkWeeklyReset();
+    this.checkMonthlyReset();
+  }
+
   checkDailyReset() {
     // Get Iran time (UTC+3:30)
     const now = new Date();
@@ -438,12 +453,7 @@ class GangTracker {
   }
 
   updateDailyXp(changes) {
-    // Log current Iran time for debugging
-    const now = new Date();
-    const iranTime = new Date(now.getTime() + 3.5 * 60 * 60 * 1000);
-    console.log(`🕐 Current Iran time: ${iranTime.toLocaleString()}`);
-
-    this.checkDailyReset();
+    // Note: Reset checks are now handled in checkAllResets() in updateGangData()
 
     changes.forEach((change) => {
       if (change.xpChange > 0) {
@@ -465,19 +475,31 @@ class GangTracker {
 
         gangDailyXp.totalXp += change.xpChange;
 
-        // Check task completion based on time and exact XP amount
+        // Check task completion based on time and XP amount
         const now = new Date();
-        const hour = now.getHours();
+        const iranTime = new Date(now.getTime() + 3.5 * 60 * 60 * 1000);
+        const hour = iranTime.getHours();
 
+        // Task completion logic - if gang gains exactly 500 XP in one update
         if (change.xpChange === 500) {
           if (hour >= 7 && hour < 18) {
-            // Task 1 time (7 AM - 6 PM) - exactly 500 XP
+            // Task 1 time (7 AM - 6 PM Iran time) - exactly 500 XP
             gangDailyXp.task1Xp += change.xpChange;
             gangDailyXp.task1Completed = true;
+            console.log(
+              `✅ Task 1 completed for ${
+                change.gang_name
+              } at Iran time: ${iranTime.toLocaleString()}`
+            );
           } else {
-            // Task 2 time (6 PM - 7 AM) - exactly 500 XP
+            // Task 2 time (6 PM - 7 AM Iran time) - exactly 500 XP
             gangDailyXp.task2Xp += change.xpChange;
             gangDailyXp.task2Completed = true;
+            console.log(
+              `✅ Task 2 completed for ${
+                change.gang_name
+              } at Iran time: ${iranTime.toLocaleString()}`
+            );
           }
         }
       }
@@ -645,6 +667,11 @@ class GangTracker {
 
       // Store report data for DM sending
       this.lastDailyReport = reportData;
+
+      // Trigger daily report sending via bot
+      if (this.botInstance && this.botInstance.sendDailyReportToUsers) {
+        this.botInstance.sendDailyReportToUsers();
+      }
 
       console.log("📊 Daily report generated successfully");
     } catch (error) {
@@ -955,6 +982,31 @@ class GangTracker {
 
   getLastMonthlyReport() {
     return this.lastMonthlyReport;
+  }
+
+  // Test method to manually trigger daily reset (for testing purposes)
+  forceDailyReset() {
+    console.log("🧪 Force triggering daily reset for testing...");
+
+    // Generate daily report before reset
+    this.generateDailyReport();
+
+    // Reset all daily XP data including task-specific counters
+    this.dailyXp.forEach((gang) => {
+      gang.totalXp = 0;
+      gang.task1Completed = false;
+      gang.task2Completed = false;
+      gang.task1Xp = 0;
+      gang.task2Xp = 0;
+    });
+
+    const now = new Date();
+    const iranTime = new Date(now.getTime() + 3.5 * 60 * 60 * 1000);
+    this.lastResetDate = iranTime;
+    this.saveDailyXpData();
+
+    console.log("🔄 Daily XP reset completed (forced)");
+    return true;
   }
 }
 
