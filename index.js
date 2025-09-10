@@ -19,6 +19,7 @@ class DiscordGangBot {
     });
 
     this.gangTracker = new GangTracker();
+    this.gangTracker.botInstance = this; // Set bot instance reference
     this.gangMonitor = new GangMonitor(this.client);
     this.commands = [];
 
@@ -122,23 +123,8 @@ class DiscordGangBot {
   }
 
   setupScheduling() {
-    // Daily update at 7:00 AM
-    const dailyJob = new cron.CronJob("0 7 * * *", async () => {
-      console.log("🕐 Daily gang data update at 7:00 AM");
-      try {
-        await this.gangTracker.updateGangData();
-
-        // Send daily report to users who used /gangs command
-        await this.sendDailyReportToUsers();
-
-        console.log("✅ Daily update completed");
-      } catch (error) {
-        console.error("❌ Daily update failed:", error);
-      }
-    });
-    dailyJob.start();
-
     // Auto-update /gangs message every 30 seconds
+    // This will also handle daily/weekly/monthly resets when needed
     setInterval(async () => {
       await this.updateGangsMessage();
     }, 30000); // 30 seconds
@@ -435,7 +421,7 @@ class DiscordGangBot {
       const task2Status = gang.task2Completed ? "✅" : "❌";
 
       description += `${medal} **${gang.gang_name}**\n`;
-      description += `   💎 Total XP: ${gang.xp.toLocaleString()} | Daily XP: ${gang.dailyXp.toLocaleString()} | Weekly XP: ${gang.weeklyXp.toLocaleString()}\n`;
+      description += `   💎 Total XP: ${gang.xp.toLocaleString()} | Daily XP: ${gang.dailyXp.toLocaleString()} | Weekly XP: ${gang.weeklyXp.toLocaleString()} | Monthly XP: ${gang.monthlyXp.toLocaleString()}\n`;
       description += `   🎯 Tasks: ${task1Status} ${task2Status} | Level: ${gang.rank}\n\n`;
     });
 
@@ -521,11 +507,18 @@ class DiscordGangBot {
       (max, gang) => (gang.weeklyXp > max.weeklyXp ? gang : max),
       gangs[0]
     );
+    const topMonthly = gangs.reduce(
+      (max, gang) => (gang.monthlyXp > max.monthlyXp ? gang : max),
+      gangs[0]
+    );
     const avgDaily = Math.round(
       gangs.reduce((sum, gang) => sum + gang.dailyXp, 0) / gangs.length
     );
     const avgWeekly = Math.round(
       gangs.reduce((sum, gang) => sum + gang.weeklyXp, 0) / gangs.length
+    );
+    const avgMonthly = Math.round(
+      gangs.reduce((sum, gang) => sum + gang.monthlyXp, 0) / gangs.length
     );
 
     return (
@@ -535,8 +528,12 @@ class DiscordGangBot {
       `📊 **Top Weekly:** ${
         topWeekly.gang_name
       } (${topWeekly.weeklyXp.toLocaleString()})\n` +
+      `📅 **Top Monthly:** ${
+        topMonthly.gang_name
+      } (${topMonthly.monthlyXp.toLocaleString()})\n` +
       `📉 **Avg Daily:** ${avgDaily.toLocaleString()}\n` +
       `📊 **Avg Weekly:** ${avgWeekly.toLocaleString()}\n` +
+      `📅 **Avg Monthly:** ${avgMonthly.toLocaleString()}\n` +
       `🔄 **Update Rate:** Every 30 seconds`
     );
   }
@@ -740,6 +737,251 @@ class DiscordGangBot {
       );
     } catch (error) {
       console.error("❌ Error sending daily report to users:", error);
+    }
+  }
+
+  async sendWeeklyReportToUsers() {
+    try {
+      const report = this.gangTracker.getLastWeeklyReport();
+      if (!report) {
+        console.log("📊 No weekly report available to send");
+        return;
+      }
+
+      if (this.gangsUsers.size === 0) {
+        console.log("📊 No users to send weekly report to");
+        return;
+      }
+
+      console.log(`📤 Sending weekly report to ${this.gangsUsers.size} users`);
+
+      // Create embed for the report
+      const reportEmbed = new EmbedBuilder()
+        .setTitle("📊 Weekly Gang Report")
+        .setDescription(
+          `**Week:** ${report.weekStart} to ${
+            report.weekEnd
+          }\n**Generated:** <t:${Math.floor(
+            new Date(report.generatedAt).getTime() / 1000
+          )}:R>`
+        )
+        .setColor(0x0099ff)
+        .addFields({
+          name: "📈 Summary",
+          value: `**Total Gangs:** ${
+            report.summary.totalGangs
+          }\n**Active Gangs:** ${
+            report.summary.activeGangs
+          }\n**Total Weekly XP:** ${report.summary.totalWeeklyXp.toLocaleString()}`,
+          inline: true,
+        })
+        .setTimestamp()
+        .setFooter({ text: "By Agha Dani" });
+
+      // Add top 5 weekly performers
+      const topWeekly = report.weeklyStats
+        .sort((a, b) => b.totalXp - a.totalXp)
+        .slice(0, 5);
+
+      if (topWeekly.length > 0) {
+        let topPerformers = "";
+        topWeekly.forEach((gang, index) => {
+          const medal =
+            index === 0 ? "🏆" : index === 1 ? "🥈" : index === 2 ? "🥉" : "🎖️";
+          topPerformers += `${medal} **${
+            gang.gang_name
+          }**: ${gang.totalXp.toLocaleString()} XP\n`;
+        });
+
+        reportEmbed.addFields({
+          name: "🏆 Top Weekly Performers",
+          value: topPerformers,
+          inline: false,
+        });
+      }
+
+      // Send to all tracked users
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const userId of this.gangsUsers) {
+        try {
+          const user = await this.client.users.fetch(userId);
+          if (user) {
+            // Send the embed
+            await user.send({ embeds: [reportEmbed] });
+
+            // Also send the text file as attachment
+            const fs = require("fs-extra");
+            const path = require("path");
+            const txtFile = path.join(
+              __dirname,
+              "data",
+              "reports",
+              `weekly-report-${report.weekStart}-to-${report.weekEnd}.txt`
+            );
+
+            if (await fs.pathExists(txtFile)) {
+              await user.send({
+                content: "📄 **Detailed Weekly Report File:**",
+                files: [
+                  {
+                    attachment: txtFile,
+                    name: `weekly-report-${report.weekStart}-to-${report.weekEnd}.txt`,
+                  },
+                ],
+              });
+            }
+
+            successCount++;
+            console.log(`📤 Weekly report sent to ${user.tag} (${userId})`);
+          }
+        } catch (error) {
+          failCount++;
+          console.error(
+            `❌ Failed to send weekly report to user ${userId}:`,
+            error.message
+          );
+
+          // If user blocked the bot or doesn't allow DMs, remove from tracking
+          if (error.code === 50007 || error.code === 50013) {
+            this.gangsUsers.delete(userId);
+            console.log(
+              `🗑️ Removed user ${userId} from tracking (blocked DMs)`
+            );
+          }
+        }
+      }
+
+      console.log(
+        `📊 Weekly report sending completed: ${successCount} success, ${failCount} failed`
+      );
+    } catch (error) {
+      console.error("❌ Error sending weekly report to users:", error);
+    }
+  }
+
+  async sendMonthlyReportToUsers() {
+    try {
+      const report = this.gangTracker.getLastMonthlyReport();
+      if (!report) {
+        console.log("📊 No monthly report available to send");
+        return;
+      }
+
+      if (this.gangsUsers.size === 0) {
+        console.log("📊 No users to send monthly report to");
+        return;
+      }
+
+      console.log(`📤 Sending monthly report to ${this.gangsUsers.size} users`);
+
+      // Create embed for the report
+      const reportEmbed = new EmbedBuilder()
+        .setTitle("📊 Monthly Gang Report")
+        .setDescription(
+          `**Month:** ${report.month}\n**Period:** ${report.monthStart} to ${
+            report.monthEnd
+          }\n**Generated:** <t:${Math.floor(
+            new Date(report.generatedAt).getTime() / 1000
+          )}:R>`
+        )
+        .setColor(0xff6600)
+        .addFields({
+          name: "📈 Summary",
+          value: `**Total Gangs:** ${
+            report.summary.totalGangs
+          }\n**Active Gangs:** ${
+            report.summary.activeGangs
+          }\n**Total Monthly XP:** ${report.summary.totalMonthlyXp.toLocaleString()}`,
+          inline: true,
+        })
+        .setTimestamp()
+        .setFooter({ text: "By Agha Dani" });
+
+      // Add top 5 monthly performers
+      const topMonthly = report.monthlyStats
+        .sort((a, b) => b.totalXp - a.totalXp)
+        .slice(0, 5);
+
+      if (topMonthly.length > 0) {
+        let topPerformers = "";
+        topMonthly.forEach((gang, index) => {
+          const medal =
+            index === 0 ? "🏆" : index === 1 ? "🥈" : index === 2 ? "🥉" : "🎖️";
+          topPerformers += `${medal} **${
+            gang.gang_name
+          }**: ${gang.totalXp.toLocaleString()} XP\n`;
+        });
+
+        reportEmbed.addFields({
+          name: "🏆 Top Monthly Performers",
+          value: topPerformers,
+          inline: false,
+        });
+      }
+
+      // Send to all tracked users
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const userId of this.gangsUsers) {
+        try {
+          const user = await this.client.users.fetch(userId);
+          if (user) {
+            // Send the embed
+            await user.send({ embeds: [reportEmbed] });
+
+            // Also send the text file as attachment
+            const fs = require("fs-extra");
+            const path = require("path");
+            const txtFile = path.join(
+              __dirname,
+              "data",
+              "reports",
+              `monthly-report-${report.month.replace(" ", "-")}.txt`
+            );
+
+            if (await fs.pathExists(txtFile)) {
+              await user.send({
+                content: "📄 **Detailed Monthly Report File:**",
+                files: [
+                  {
+                    attachment: txtFile,
+                    name: `monthly-report-${report.month.replace(
+                      " ",
+                      "-"
+                    )}.txt`,
+                  },
+                ],
+              });
+            }
+
+            successCount++;
+            console.log(`📤 Monthly report sent to ${user.tag} (${userId})`);
+          }
+        } catch (error) {
+          failCount++;
+          console.error(
+            `❌ Failed to send monthly report to user ${userId}:`,
+            error.message
+          );
+
+          // If user blocked the bot or doesn't allow DMs, remove from tracking
+          if (error.code === 50007 || error.code === 50013) {
+            this.gangsUsers.delete(userId);
+            console.log(
+              `🗑️ Removed user ${userId} from tracking (blocked DMs)`
+            );
+          }
+        }
+      }
+
+      console.log(
+        `📊 Monthly report sending completed: ${successCount} success, ${failCount} failed`
+      );
+    } catch (error) {
+      console.error("❌ Error sending monthly report to users:", error);
     }
   }
 }

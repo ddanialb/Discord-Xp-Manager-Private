@@ -1,23 +1,4 @@
 {
-  "dailyXp": [
-    {
-      "gang_name": "Liquid",
-      "totalXp": 220,
-      "task1Completed": false,
-      "task2Completed": false
-    },
-    {
-      "gang_name": "GHATELIN",
-      "totalXp": 80,
-      "task1Completed": false,
-      "task2Completed": false
-    },
-    {
-      "gang_name": "Hawk",
-      "totalXp": 570,
-      "task1Completed": true,
-      "task2Completed": false
-    }
-  ],
-  "lastUpdate": "2025-09-09T06:02:32.664Z"
+  "dailyXp": [],
+  "lastUpdate": null
 }

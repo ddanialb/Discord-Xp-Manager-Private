@@ -1,17 +1,4 @@
 {
-  "weeklyXp": [
-    {
-      "gang_name": "Liquid",
-      "totalXp": 220
-    },
-    {
-      "gang_name": "GHATELIN",
-      "totalXp": 80
-    },
-    {
-      "gang_name": "Hawk",
-      "totalXp": 570
-    }
-  ],
-  "lastUpdate": "2025-09-09T06:02:32.664Z"
+  "weeklyXp": [],
+  "lastUpdate": null
 }

@@ -7,12 +7,15 @@ class GangTracker {
     this.gangs = [];
     this.dailyXp = [];
     this.weeklyXp = [];
+    this.monthlyXp = [];
     this.dataFile = path.join(__dirname, "..", "data", "gangs.json");
     this.dailyXpFile = path.join(__dirname, "..", "data", "daily_xp.json");
     this.weeklyXpFile = path.join(__dirname, "..", "data", "weekly_xp.json");
+    this.monthlyXpFile = path.join(__dirname, "..", "data", "monthly_xp.json");
     this.apiUrl = "https://app.diamondrp.ir/api/tops/gangs";
     this.lastResetDate = null;
     this.lastWeeklyResetDate = null;
+    this.lastMonthlyResetDate = null;
 
     this.loadData();
   }
@@ -21,6 +24,7 @@ class GangTracker {
     await this.loadGangData();
     await this.loadDailyXpData();
     await this.loadWeeklyXpData();
+    await this.loadMonthlyXpData();
   }
 
   async loadGangData() {
@@ -71,6 +75,24 @@ class GangTracker {
     }
   }
 
+  async loadMonthlyXpData() {
+    try {
+      if (await fs.pathExists(this.monthlyXpFile)) {
+        const data = await fs.readJson(this.monthlyXpFile);
+        this.monthlyXp = data.monthlyXp || [];
+        this.lastMonthlyResetDate = data.lastMonthlyResetDate || null;
+        console.log(
+          `📁 Loaded monthly XP data for ${this.monthlyXp.length} gangs`
+        );
+      } else {
+        console.log("📁 No existing monthly XP data found");
+      }
+    } catch (error) {
+      console.error("❌ Error loading monthly XP data:", error);
+      this.monthlyXp = [];
+    }
+  }
+
   async saveGangData() {
     try {
       const data = {
@@ -108,6 +130,20 @@ class GangTracker {
       console.log("💾 Weekly XP data saved successfully");
     } catch (error) {
       console.error("❌ Error saving weekly XP data:", error);
+    }
+  }
+
+  async saveMonthlyXpData() {
+    try {
+      const data = {
+        monthlyXp: this.monthlyXp,
+        lastMonthlyResetDate: this.lastMonthlyResetDate,
+        lastUpdate: new Date().toISOString(),
+      };
+      await fs.writeJson(this.monthlyXpFile, data, { spaces: 2 });
+      console.log("💾 Monthly XP data saved successfully");
+    } catch (error) {
+      console.error("❌ Error saving monthly XP data:", error);
     }
   }
 
@@ -154,6 +190,7 @@ class GangTracker {
         );
         this.updateDailyXp(changes);
         this.updateWeeklyXp(changes);
+        this.updateMonthlyXp(changes);
         return changes;
       } else {
         console.log("✅ Gang data updated, no changes detected.");
@@ -278,20 +315,31 @@ class GangTracker {
   }
 
   checkDailyReset() {
+    // Get Iran time (UTC+3:30)
     const now = new Date();
+    const iranTime = new Date(now.getTime() + 3.5 * 60 * 60 * 1000); // UTC+3:30
+
     if (!this.lastResetDate) {
-      this.lastResetDate = now;
-      return true;
+      this.lastResetDate = iranTime;
+      return false; // Don't reset on first run
     }
 
     const lastReset = new Date(this.lastResetDate);
+    const lastResetIran = new Date(lastReset.getTime() + 3.5 * 60 * 60 * 1000);
+
+    // Check if it's 7 AM Iran time and a new day
     const shouldReset =
-      now.getHours() >= 7 &&
-      (now.getDate() !== lastReset.getDate() ||
-        now.getMonth() !== lastReset.getMonth() ||
-        now.getFullYear() !== lastReset.getFullYear());
+      iranTime.getHours() === 7 &&
+      iranTime.getMinutes() < 1 && // Only reset in the first minute of 7 AM
+      (iranTime.getDate() !== lastResetIran.getDate() ||
+        iranTime.getMonth() !== lastResetIran.getMonth() ||
+        iranTime.getFullYear() !== lastResetIran.getFullYear());
 
     if (shouldReset) {
+      console.log(
+        `🕐 Daily reset triggered at Iran time: ${iranTime.toLocaleString()}`
+      );
+
       // Generate daily report before reset
       this.generateDailyReport();
 
@@ -303,9 +351,9 @@ class GangTracker {
         gang.task1Xp = 0;
         gang.task2Xp = 0;
       });
-      this.lastResetDate = now;
+      this.lastResetDate = iranTime;
       this.saveDailyXpData();
-      console.log("🔄 Daily XP reset");
+      console.log("🔄 Daily XP reset completed");
       return true;
     }
 
@@ -313,24 +361,76 @@ class GangTracker {
   }
 
   checkWeeklyReset() {
+    // Get Iran time (UTC+3:30)
     const now = new Date();
+    const iranTime = new Date(now.getTime() + 3.5 * 60 * 60 * 1000); // UTC+3:30
+
     if (!this.lastWeeklyResetDate) {
-      this.lastWeeklyResetDate = now;
-      return true;
+      this.lastWeeklyResetDate = iranTime;
+      return false; // Don't reset on first run
     }
 
     const lastReset = new Date(this.lastWeeklyResetDate);
-    const daysSinceReset = Math.floor(
-      (now - lastReset) / (1000 * 60 * 60 * 24)
-    );
+    const lastResetIran = new Date(lastReset.getTime() + 3.5 * 60 * 60 * 1000);
+
+    // Check if it's Sunday 7 AM Iran time and a new week
     const shouldReset =
-      daysSinceReset >= 7 && now.getHours() >= 7 && now.getDay() === 1; // Monday
+      iranTime.getHours() === 7 &&
+      iranTime.getMinutes() < 1 && // Only reset in the first minute of 7 AM
+      iranTime.getDay() === 0 && // Sunday
+      Math.floor((iranTime - lastResetIran) / (1000 * 60 * 60 * 24)) >= 7;
 
     if (shouldReset) {
+      console.log(
+        `🕐 Weekly reset triggered at Iran time: ${iranTime.toLocaleString()}`
+      );
+
+      // Generate weekly report before reset
+      this.generateWeeklyReport();
+
       this.weeklyXp = [];
-      this.lastWeeklyResetDate = now;
+      this.lastWeeklyResetDate = iranTime;
       this.saveWeeklyXpData();
-      console.log("🔄 Weekly XP reset");
+      console.log("🔄 Weekly XP reset completed");
+      return true;
+    }
+
+    return false;
+  }
+
+  checkMonthlyReset() {
+    // Get Iran time (UTC+3:30)
+    const now = new Date();
+    const iranTime = new Date(now.getTime() + 3.5 * 60 * 60 * 1000); // UTC+3:30
+
+    if (!this.lastMonthlyResetDate) {
+      this.lastMonthlyResetDate = iranTime;
+      return false; // Don't reset on first run
+    }
+
+    const lastReset = new Date(this.lastMonthlyResetDate);
+    const lastResetIran = new Date(lastReset.getTime() + 3.5 * 60 * 60 * 1000);
+
+    // Check if it's 1st of month 7 AM Iran time
+    const shouldReset =
+      iranTime.getHours() === 7 &&
+      iranTime.getMinutes() < 1 && // Only reset in the first minute of 7 AM
+      iranTime.getDate() === 1 && // First day of month
+      (iranTime.getMonth() !== lastResetIran.getMonth() ||
+        iranTime.getFullYear() !== lastResetIran.getFullYear());
+
+    if (shouldReset) {
+      console.log(
+        `🕐 Monthly reset triggered at Iran time: ${iranTime.toLocaleString()}`
+      );
+
+      // Generate monthly report before reset
+      this.generateMonthlyReport();
+
+      this.monthlyXp = [];
+      this.lastMonthlyResetDate = iranTime;
+      this.saveMonthlyXpData();
+      console.log("🔄 Monthly XP reset completed");
       return true;
     }
 
@@ -338,6 +438,11 @@ class GangTracker {
   }
 
   updateDailyXp(changes) {
+    // Log current Iran time for debugging
+    const now = new Date();
+    const iranTime = new Date(now.getTime() + 3.5 * 60 * 60 * 1000);
+    console.log(`🕐 Current Iran time: ${iranTime.toLocaleString()}`);
+
     this.checkDailyReset();
 
     changes.forEach((change) => {
@@ -405,6 +510,30 @@ class GangTracker {
     this.saveWeeklyXpData();
   }
 
+  updateMonthlyXp(changes) {
+    this.checkMonthlyReset();
+
+    changes.forEach((change) => {
+      if (change.xpChange > 0) {
+        let gangMonthlyXp = this.monthlyXp.find(
+          (gang) => gang.gang_name === change.gang_name
+        );
+
+        if (!gangMonthlyXp) {
+          gangMonthlyXp = {
+            gang_name: change.gang_name,
+            totalXp: 0,
+          };
+          this.monthlyXp.push(gangMonthlyXp);
+        }
+
+        gangMonthlyXp.totalXp += change.xpChange;
+      }
+    });
+
+    this.saveMonthlyXpData();
+  }
+
   getGangs() {
     return this.gangs;
   }
@@ -417,11 +546,15 @@ class GangTracker {
       const weeklyXpData = this.weeklyXp.find(
         (w) => w.gang_name === gang.gang_name
       );
+      const monthlyXpData = this.monthlyXp.find(
+        (m) => m.gang_name === gang.gang_name
+      );
 
       return {
         ...gang,
         dailyXp: dailyXpData ? dailyXpData.totalXp : 0,
         weeklyXp: weeklyXpData ? weeklyXpData.totalXp : 0,
+        monthlyXp: monthlyXpData ? monthlyXpData.totalXp : 0,
         task1Completed: dailyXpData ? dailyXpData.task1Completed : false,
         task2Completed: dailyXpData ? dailyXpData.task2Completed : false,
         task1Xp: dailyXpData ? dailyXpData.task1Xp : 0,
@@ -452,12 +585,25 @@ class GangTracker {
     );
   }
 
+  getMonthlyStats(gangName) {
+    const monthlyXpData = this.monthlyXp.find((m) => m.gang_name === gangName);
+    return (
+      monthlyXpData || {
+        totalXp: 0,
+      }
+    );
+  }
+
   getAllDailyStats() {
     return this.dailyXp;
   }
 
   getAllWeeklyStats() {
     return this.weeklyXp;
+  }
+
+  getAllMonthlyStats() {
+    return this.monthlyXp;
   }
 
   generateDailyReport() {
@@ -593,6 +739,222 @@ class GangTracker {
 
   getLastDailyReport() {
     return this.lastDailyReport;
+  }
+
+  generateWeeklyReport() {
+    try {
+      const now = new Date();
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - now.getDay()); // Start of current week (Sunday)
+
+      const reportData = {
+        weekStart: weekStart.toISOString().split("T")[0],
+        weekEnd: now.toISOString().split("T")[0],
+        generatedAt: now.toISOString(),
+        weeklyStats: this.weeklyXp.map((gang) => ({
+          gang_name: gang.gang_name,
+          totalXp: gang.totalXp,
+        })),
+        summary: {
+          totalGangs: this.weeklyXp.length,
+          activeGangs: this.weeklyXp.filter((g) => g.totalXp > 0).length,
+          totalWeeklyXp: this.weeklyXp.reduce((sum, g) => sum + g.totalXp, 0),
+        },
+      };
+
+      // Save report to file
+      this.saveWeeklyReportToFile(reportData);
+
+      // Store report data for DM sending
+      this.lastWeeklyReport = reportData;
+
+      // Trigger weekly report sending via bot
+      if (this.botInstance && this.botInstance.sendWeeklyReportToUsers) {
+        this.botInstance.sendWeeklyReportToUsers();
+      }
+
+      console.log("📊 Weekly report generated successfully");
+    } catch (error) {
+      console.error("❌ Error generating weekly report:", error);
+    }
+  }
+
+  generateMonthlyReport() {
+    try {
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      const reportData = {
+        month: now.toLocaleString("default", {
+          month: "long",
+          year: "numeric",
+        }),
+        monthStart: monthStart.toISOString().split("T")[0],
+        monthEnd: now.toISOString().split("T")[0],
+        generatedAt: now.toISOString(),
+        monthlyStats: this.monthlyXp.map((gang) => ({
+          gang_name: gang.gang_name,
+          totalXp: gang.totalXp,
+        })),
+        summary: {
+          totalGangs: this.monthlyXp.length,
+          activeGangs: this.monthlyXp.filter((g) => g.totalXp > 0).length,
+          totalMonthlyXp: this.monthlyXp.reduce((sum, g) => sum + g.totalXp, 0),
+        },
+      };
+
+      // Save report to file
+      this.saveMonthlyReportToFile(reportData);
+
+      // Store report data for DM sending
+      this.lastMonthlyReport = reportData;
+
+      // Trigger monthly report sending via bot
+      if (this.botInstance && this.botInstance.sendMonthlyReportToUsers) {
+        this.botInstance.sendMonthlyReportToUsers();
+      }
+
+      console.log("📊 Monthly report generated successfully");
+    } catch (error) {
+      console.error("❌ Error generating monthly report:", error);
+    }
+  }
+
+  saveWeeklyReportToFile(reportData) {
+    try {
+      const fs = require("fs-extra");
+      const path = require("path");
+
+      // Create reports directory if it doesn't exist
+      const reportsDir = path.join(__dirname, "..", "data", "reports");
+      fs.ensureDirSync(reportsDir);
+
+      // Save JSON file
+      const jsonFile = path.join(
+        reportsDir,
+        `weekly-report-${reportData.weekStart}-to-${reportData.weekEnd}.json`
+      );
+      fs.writeJsonSync(jsonFile, reportData, { spaces: 2 });
+
+      // Save TXT file
+      const txtFile = path.join(
+        reportsDir,
+        `weekly-report-${reportData.weekStart}-to-${reportData.weekEnd}.txt`
+      );
+      const txtContent = this.formatWeeklyReportAsText(reportData);
+      fs.writeFileSync(txtFile, txtContent, "utf8");
+
+      console.log(`📄 Weekly report saved to files: ${jsonFile}, ${txtFile}`);
+    } catch (error) {
+      console.error("❌ Error saving weekly report to file:", error);
+    }
+  }
+
+  saveMonthlyReportToFile(reportData) {
+    try {
+      const fs = require("fs-extra");
+      const path = require("path");
+
+      // Create reports directory if it doesn't exist
+      const reportsDir = path.join(__dirname, "..", "data", "reports");
+      fs.ensureDirSync(reportsDir);
+
+      // Save JSON file
+      const jsonFile = path.join(
+        reportsDir,
+        `monthly-report-${reportData.month.replace(" ", "-")}.json`
+      );
+      fs.writeJsonSync(jsonFile, reportData, { spaces: 2 });
+
+      // Save TXT file
+      const txtFile = path.join(
+        reportsDir,
+        `monthly-report-${reportData.month.replace(" ", "-")}.txt`
+      );
+      const txtContent = this.formatMonthlyReportAsText(reportData);
+      fs.writeFileSync(txtFile, txtContent, "utf8");
+
+      console.log(`📄 Monthly report saved to files: ${jsonFile}, ${txtFile}`);
+    } catch (error) {
+      console.error("❌ Error saving monthly report to file:", error);
+    }
+  }
+
+  formatWeeklyReportAsText(reportData) {
+    let content = `🏴‍☠️ DIAMONDRP GANG WEEKLY REPORT 🏴‍☠️\n`;
+    content += `📅 Week: ${reportData.weekStart} to ${reportData.weekEnd}\n`;
+    content += `⏰ Generated: ${new Date(
+      reportData.generatedAt
+    ).toLocaleString()}\n`;
+    content += `\n${"=".repeat(50)}\n\n`;
+
+    // Summary
+    content += `📊 SUMMARY:\n`;
+    content += `• Total Gangs: ${reportData.summary.totalGangs}\n`;
+    content += `• Active Gangs: ${reportData.summary.activeGangs}\n`;
+    content += `• Total Weekly XP: ${reportData.summary.totalWeeklyXp.toLocaleString()}\n\n`;
+
+    // Weekly Stats
+    content += `📊 WEEKLY XP RANKING:\n`;
+    const sortedWeekly = [...reportData.weeklyStats].sort(
+      (a, b) => b.totalXp - a.totalXp
+    );
+    sortedWeekly.forEach((gang, index) => {
+      const medal =
+        index === 0 ? "🏆" : index === 1 ? "🥈" : index === 2 ? "🥉" : "🎖️";
+      content += `${medal} ${
+        gang.gang_name
+      }: ${gang.totalXp.toLocaleString()} XP\n`;
+    });
+
+    content += `\n${"=".repeat(50)}\n`;
+    content += `🤖 Generated by DiamondRP Gang Tracker Bot\n`;
+    content += `👨‍💻 By Agha Dani\n`;
+
+    return content;
+  }
+
+  formatMonthlyReportAsText(reportData) {
+    let content = `🏴‍☠️ DIAMONDRP GANG MONTHLY REPORT 🏴‍☠️\n`;
+    content += `📅 Month: ${reportData.month}\n`;
+    content += `📅 Period: ${reportData.monthStart} to ${reportData.monthEnd}\n`;
+    content += `⏰ Generated: ${new Date(
+      reportData.generatedAt
+    ).toLocaleString()}\n`;
+    content += `\n${"=".repeat(50)}\n\n`;
+
+    // Summary
+    content += `📊 SUMMARY:\n`;
+    content += `• Total Gangs: ${reportData.summary.totalGangs}\n`;
+    content += `• Active Gangs: ${reportData.summary.activeGangs}\n`;
+    content += `• Total Monthly XP: ${reportData.summary.totalMonthlyXp.toLocaleString()}\n\n`;
+
+    // Monthly Stats
+    content += `📊 MONTHLY XP RANKING:\n`;
+    const sortedMonthly = [...reportData.monthlyStats].sort(
+      (a, b) => b.totalXp - a.totalXp
+    );
+    sortedMonthly.forEach((gang, index) => {
+      const medal =
+        index === 0 ? "🏆" : index === 1 ? "🥈" : index === 2 ? "🥉" : "🎖️";
+      content += `${medal} ${
+        gang.gang_name
+      }: ${gang.totalXp.toLocaleString()} XP\n`;
+    });
+
+    content += `\n${"=".repeat(50)}\n`;
+    content += `🤖 Generated by DiamondRP Gang Tracker Bot\n`;
+    content += `👨‍💻 By Agha Dani\n`;
+
+    return content;
+  }
+
+  getLastWeeklyReport() {
+    return this.lastWeeklyReport;
+  }
+
+  getLastMonthlyReport() {
+    return this.lastMonthlyReport;
   }
 }
 
