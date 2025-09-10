@@ -292,6 +292,9 @@ class GangTracker {
         now.getFullYear() !== lastReset.getFullYear());
 
     if (shouldReset) {
+      // Generate daily report before reset
+      this.generateDailyReport();
+
       // Reset all daily XP data including task-specific counters
       this.dailyXp.forEach((gang) => {
         gang.totalXp = 0;
@@ -455,6 +458,141 @@ class GangTracker {
 
   getAllWeeklyStats() {
     return this.weeklyXp;
+  }
+
+  generateDailyReport() {
+    try {
+      const now = new Date();
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      const reportData = {
+        date: yesterday.toISOString().split("T")[0], // YYYY-MM-DD format
+        generatedAt: now.toISOString(),
+        dailyStats: this.dailyXp.map((gang) => ({
+          gang_name: gang.gang_name,
+          totalXp: gang.totalXp,
+          task1Completed: gang.task1Completed,
+          task2Completed: gang.task2Completed,
+          task1Xp: gang.task1Xp || 0,
+          task2Xp: gang.task2Xp || 0,
+        })),
+        weeklyStats: this.weeklyXp.map((gang) => ({
+          gang_name: gang.gang_name,
+          totalXp: gang.totalXp,
+        })),
+        summary: {
+          totalGangs: this.dailyXp.length,
+          activeGangs: this.dailyXp.filter((g) => g.totalXp > 0).length,
+          totalDailyXp: this.dailyXp.reduce((sum, g) => sum + g.totalXp, 0),
+          totalWeeklyXp: this.weeklyXp.reduce((sum, g) => sum + g.totalXp, 0),
+          task1Completed: this.dailyXp.filter((g) => g.task1Completed).length,
+          task2Completed: this.dailyXp.filter((g) => g.task2Completed).length,
+          bothTasksCompleted: this.dailyXp.filter(
+            (g) => g.task1Completed && g.task2Completed
+          ).length,
+        },
+      };
+
+      // Save report to file
+      this.saveDailyReportToFile(reportData);
+
+      // Store report data for DM sending
+      this.lastDailyReport = reportData;
+
+      console.log("📊 Daily report generated successfully");
+    } catch (error) {
+      console.error("❌ Error generating daily report:", error);
+    }
+  }
+
+  saveDailyReportToFile(reportData) {
+    try {
+      const fs = require("fs-extra");
+      const path = require("path");
+
+      // Create reports directory if it doesn't exist
+      const reportsDir = path.join(__dirname, "..", "data", "reports");
+      fs.ensureDirSync(reportsDir);
+
+      // Save JSON file
+      const jsonFile = path.join(
+        reportsDir,
+        `daily-report-${reportData.date}.json`
+      );
+      fs.writeJsonSync(jsonFile, reportData, { spaces: 2 });
+
+      // Save TXT file
+      const txtFile = path.join(
+        reportsDir,
+        `daily-report-${reportData.date}.txt`
+      );
+      const txtContent = this.formatReportAsText(reportData);
+      fs.writeFileSync(txtFile, txtContent, "utf8");
+
+      console.log(`📄 Daily report saved to files: ${jsonFile}, ${txtFile}`);
+    } catch (error) {
+      console.error("❌ Error saving daily report to file:", error);
+    }
+  }
+
+  formatReportAsText(reportData) {
+    let content = `🏴‍☠️ DIAMONDRP GANG DAILY REPORT 🏴‍☠️\n`;
+    content += `📅 Date: ${reportData.date}\n`;
+    content += `⏰ Generated: ${new Date(
+      reportData.generatedAt
+    ).toLocaleString()}\n`;
+    content += `\n${"=".repeat(50)}\n\n`;
+
+    // Summary
+    content += `📊 SUMMARY:\n`;
+    content += `• Total Gangs: ${reportData.summary.totalGangs}\n`;
+    content += `• Active Gangs: ${reportData.summary.activeGangs}\n`;
+    content += `• Total Daily XP: ${reportData.summary.totalDailyXp.toLocaleString()}\n`;
+    content += `• Total Weekly XP: ${reportData.summary.totalWeeklyXp.toLocaleString()}\n`;
+    content += `• Task 1 Completed: ${reportData.summary.task1Completed}\n`;
+    content += `• Task 2 Completed: ${reportData.summary.task2Completed}\n`;
+    content += `• Both Tasks Completed: ${reportData.summary.bothTasksCompleted}\n\n`;
+
+    // Daily Stats
+    content += `📊 DAILY XP RANKING:\n`;
+    const sortedDaily = [...reportData.dailyStats].sort(
+      (a, b) => b.totalXp - a.totalXp
+    );
+    sortedDaily.forEach((gang, index) => {
+      const medal =
+        index === 0 ? "🏆" : index === 1 ? "🥈" : index === 2 ? "🥉" : "🎖️";
+      const task1Status = gang.task1Completed ? "✅" : "❌";
+      const task2Status = gang.task2Completed ? "✅" : "❌";
+
+      content += `${medal} ${
+        gang.gang_name
+      }: ${gang.totalXp.toLocaleString()} XP\n`;
+      content += `   Tasks: ${task1Status} ${task2Status} | Task1: ${gang.task1Xp} | Task2: ${gang.task2Xp}\n\n`;
+    });
+
+    // Weekly Stats
+    content += `📊 WEEKLY XP RANKING:\n`;
+    const sortedWeekly = [...reportData.weeklyStats].sort(
+      (a, b) => b.totalXp - a.totalXp
+    );
+    sortedWeekly.forEach((gang, index) => {
+      const medal =
+        index === 0 ? "🏆" : index === 1 ? "🥈" : index === 2 ? "🥉" : "🎖️";
+      content += `${medal} ${
+        gang.gang_name
+      }: ${gang.totalXp.toLocaleString()} XP\n`;
+    });
+
+    content += `\n${"=".repeat(50)}\n`;
+    content += `🤖 Generated by DiamondRP Gang Tracker Bot\n`;
+    content += `👨‍💻 By Agha Dani\n`;
+
+    return content;
+  }
+
+  getLastDailyReport() {
+    return this.lastDailyReport;
   }
 }
 

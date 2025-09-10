@@ -25,6 +25,7 @@ class DiscordGangBot {
     this.client.gangBot = this;
     this.gangsMessages = new Map();
     this.autoUpdateEnabled = true;
+    this.gangsUsers = new Set(); // Track users who used /gangs command
     this.setupCommands();
   }
 
@@ -146,6 +147,10 @@ class DiscordGangBot {
       console.log("🕐 Daily gang data update at 7:00 AM");
       try {
         await this.gangTracker.updateGangData();
+
+        // Send daily report to users who used /gangs command
+        await this.sendDailyReportToUsers();
+
         console.log("✅ Daily update completed");
       } catch (error) {
         console.error("❌ Daily update failed:", error);
@@ -177,7 +182,7 @@ class DiscordGangBot {
         .setDescription(
           "```ansi\n" +
             "╔══════════════════════════════════════╗\n" +
-            "║        🔄 FETCHING DATA... 🔄        ║\n" +
+            "║       🔄 FETCHING DATA... 🔄        ║\n" +
             "║     Please wait while we update      ║\n" +
             "║        the gang leaderboard          ║\n" +
             "╚══════════════════════════════════════╝\n" +
@@ -199,8 +204,13 @@ class DiscordGangBot {
       // Store the message for this specific channel
       this.gangsMessages.set(interaction.channelId, message);
 
+      // Track user who used /gangs command
+      this.gangsUsers.add(interaction.user.id);
+
+      // Get channel name for better logging
+      const channelName = interaction.channel.name || "Unknown";
       console.log(
-        `📝 /gangs message stored for channel ${interaction.channelId}`
+        `📝 /gangs message stored for channel #${channelName} (${interaction.channelId})`
       );
     } catch (error) {
       console.error("❌ Error in handleGangsCommand:", error);
@@ -210,7 +220,7 @@ class DiscordGangBot {
         .setDescription(
           "```ansi\n" +
             "╔══════════════════════════════════════╗\n" +
-            "║           ❌ ERROR OCCURRED ❌        ║\n" +
+            "║         ❌ ERROR OCCURRED ❌        ║\n" +
             "║     Failed to fetch gang data        ║\n" +
             "║     Please try again later           ║\n" +
             "╚══════════════════════════════════════╝\n" +
@@ -336,7 +346,13 @@ class DiscordGangBot {
       for (const [channelId, message] of this.gangsMessages) {
         try {
           await message.edit({ embeds: embeds });
-          console.log(`📝 /gangs message auto-updated in channel ${channelId}`);
+
+          // Get channel name for better logging
+          const channel = this.client.channels.cache.get(channelId);
+          const channelName = channel ? channel.name : "Unknown";
+          console.log(
+            `📝 /gangs message auto-updated in channel #${channelName} (${channelId})`
+          );
         } catch (error) {
           console.error(
             `❌ Error updating message in channel ${channelId}:`,
@@ -778,6 +794,131 @@ class DiscordGangBot {
       await interaction.editReply({ embeds: [embed] });
     } catch (error) {
       throw error;
+    }
+  }
+
+  async sendDailyReportToUsers() {
+    try {
+      const report = this.gangTracker.getLastDailyReport();
+      if (!report) {
+        console.log("📊 No daily report available to send");
+        return;
+      }
+
+      if (this.gangsUsers.size === 0) {
+        console.log("📊 No users to send daily report to");
+        return;
+      }
+
+      console.log(`📤 Sending daily report to ${this.gangsUsers.size} users`);
+
+      // Create embed for the report
+      const reportEmbed = new EmbedBuilder()
+        .setTitle("📊 Daily Gang Report")
+        .setDescription(
+          `**Date:** ${report.date}\n**Generated:** <t:${Math.floor(
+            new Date(report.generatedAt).getTime() / 1000
+          )}:R>`
+        )
+        .setColor(0x00ff00)
+        .addFields(
+          {
+            name: "📈 Summary",
+            value: `**Total Gangs:** ${
+              report.summary.totalGangs
+            }\n**Active Gangs:** ${
+              report.summary.activeGangs
+            }\n**Total Daily XP:** ${report.summary.totalDailyXp.toLocaleString()}\n**Total Weekly XP:** ${report.summary.totalWeeklyXp.toLocaleString()}`,
+            inline: true,
+          },
+          {
+            name: "🎯 Task Progress",
+            value: `**Task 1:** ${report.summary.task1Completed}/${report.summary.totalGangs}\n**Task 2:** ${report.summary.task2Completed}/${report.summary.totalGangs}\n**Both Tasks:** ${report.summary.bothTasksCompleted}/${report.summary.totalGangs}`,
+            inline: true,
+          }
+        )
+        .setTimestamp()
+        .setFooter({ text: "By Agha Dani" });
+
+      // Add top 3 daily performers
+      const topDaily = report.dailyStats
+        .sort((a, b) => b.totalXp - a.totalXp)
+        .slice(0, 3);
+
+      if (topDaily.length > 0) {
+        let topPerformers = "";
+        topDaily.forEach((gang, index) => {
+          const medal = index === 0 ? "🏆" : index === 1 ? "🥈" : "🥉";
+          topPerformers += `${medal} **${
+            gang.gang_name
+          }**: ${gang.totalXp.toLocaleString()} XP\n`;
+        });
+
+        reportEmbed.addFields({
+          name: "🏆 Top Daily Performers",
+          value: topPerformers,
+          inline: false,
+        });
+      }
+
+      // Send to all tracked users
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const userId of this.gangsUsers) {
+        try {
+          const user = await this.client.users.fetch(userId);
+          if (user) {
+            // Send the embed
+            await user.send({ embeds: [reportEmbed] });
+
+            // Also send the text file as attachment
+            const fs = require("fs-extra");
+            const path = require("path");
+            const txtFile = path.join(
+              __dirname,
+              "data",
+              "reports",
+              `daily-report-${report.date}.txt`
+            );
+
+            if (await fs.pathExists(txtFile)) {
+              await user.send({
+                content: "📄 **Detailed Report File:**",
+                files: [
+                  {
+                    attachment: txtFile,
+                    name: `daily-report-${report.date}.txt`,
+                  },
+                ],
+              });
+            }
+
+            successCount++;
+            console.log(`📤 Daily report sent to ${user.tag} (${userId})`);
+          }
+        } catch (error) {
+          failCount++;
+          console.error(
+            `❌ Failed to send daily report to user ${userId}:`,
+            error.message
+          );
+
+          // If user blocked the bot or doesn't allow DMs, remove from tracking
+          if (error.code === 50007 || error.code === 50013) {
+            this.gangsUsers.delete(userId);
+            console.log(
+              `🗑️ Removed user ${userId} from tracking (blocked DMs)`
+            );
+          }
+        }
+      }
+
+      console.log(
+        `📊 Daily report sending completed: ${successCount} success, ${failCount} failed`
+      );
+    } catch (error) {
+      console.error("❌ Error sending daily report to users:", error);
     }
   }
 }
