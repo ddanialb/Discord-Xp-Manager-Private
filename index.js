@@ -201,17 +201,34 @@ class DiscordGangBot {
 
       const message = await interaction.editReply({ embeds: embeds });
 
-      // Store the message for this specific channel
-      this.gangsMessages.set(interaction.channelId, message);
+      // Check if bot has permission to send messages in this channel before storing
+      const channel = interaction.channel;
+      const botMember = channel.guild?.members.cache.get(this.client.user.id);
+      let hasPermissions = true;
+
+      if (botMember) {
+        const permissions = channel.permissionsFor(botMember);
+        hasPermissions =
+          permissions && permissions.has(["SendMessages", "ViewChannel"]);
+      }
+
+      if (hasPermissions) {
+        // Store the message for this specific channel
+        this.gangsMessages.set(interaction.channelId, message);
+
+        // Get channel name for better logging
+        const channelName = interaction.channel.name || "Unknown";
+        console.log(
+          `📝 /gangs message stored for channel #${channelName} (${interaction.channelId})`
+        );
+      } else {
+        console.log(
+          `⚠️ Cannot store message for auto-update in channel #${interaction.channel.name} (${interaction.channelId}) - missing permissions`
+        );
+      }
 
       // Track user who used /gangs command
       this.gangsUsers.add(interaction.user.id);
-
-      // Get channel name for better logging
-      const channelName = interaction.channel.name || "Unknown";
-      console.log(
-        `📝 /gangs message stored for channel #${channelName} (${interaction.channelId})`
-      );
     } catch (error) {
       console.error("❌ Error in handleGangsCommand:", error);
 
@@ -345,10 +362,37 @@ class DiscordGangBot {
       // Update all stored messages
       for (const [channelId, message] of this.gangsMessages) {
         try {
+          // Check if bot has permission to send messages in this channel
+          const channel = this.client.channels.cache.get(channelId);
+          if (!channel) {
+            console.log(
+              `🗑️ Channel ${channelId} not found, removing from tracking`
+            );
+            this.gangsMessages.delete(channelId);
+            continue;
+          }
+
+          // Check bot permissions in the channel
+          const botMember = channel.guild?.members.cache.get(
+            this.client.user.id
+          );
+          if (botMember) {
+            const permissions = channel.permissionsFor(botMember);
+            if (
+              !permissions ||
+              !permissions.has(["SendMessages", "ViewChannel"])
+            ) {
+              console.log(
+                `❌ Missing permissions in channel #${channel.name} (${channelId}), removing from tracking`
+              );
+              this.gangsMessages.delete(channelId);
+              continue;
+            }
+          }
+
           await message.edit({ embeds: embeds });
 
           // Get channel name for better logging
-          const channel = this.client.channels.cache.get(channelId);
           const channelName = channel ? channel.name : "Unknown";
           console.log(
             `📝 /gangs message auto-updated in channel #${channelName} (${channelId})`
@@ -359,11 +403,28 @@ class DiscordGangBot {
             error
           );
 
-          // If message is deleted or inaccessible, remove it from the map
+          // Handle different error types
           if (error.code === 10008 || error.code === 10003) {
+            // Message not found or channel not found
             this.gangsMessages.delete(channelId);
             console.log(
-              `🗑️ Removed invalid message reference for channel ${channelId}`
+              `🗑️ Removed invalid message reference for channel ${channelId} (message/channel not found)`
+            );
+          } else if (error.code === 50001) {
+            // Missing access/permissions
+            this.gangsMessages.delete(channelId);
+            const channel = this.client.channels.cache.get(channelId);
+            const channelName = channel ? channel.name : "Unknown";
+            console.log(
+              `🗑️ Removed message reference for channel #${channelName} (${channelId}) - missing permissions`
+            );
+          } else if (error.code === 50013) {
+            // Missing permissions
+            this.gangsMessages.delete(channelId);
+            const channel = this.client.channels.cache.get(channelId);
+            const channelName = channel ? channel.name : "Unknown";
+            console.log(
+              `🗑️ Removed message reference for channel #${channelName} (${channelId}) - insufficient permissions`
             );
           }
         }
