@@ -6,7 +6,7 @@ class GangMonitor {
     this.client = client;
     this.gangTracker = new GangTracker();
     this.isRunning = false;
-    this.checkInterval = 30000; // 30 seconds
+    this.checkInterval = 10000; // 10 seconds
     this.intervalId = null;
     this.xpThreshold = 500; // Minimum XP change to report
   }
@@ -25,7 +25,7 @@ class GangMonitor {
       await this.checkForChanges();
     }, this.checkInterval);
 
-    console.log("✅ Gang monitoring started (checking every 30 seconds)");
+    console.log("✅ Gang monitoring started (checking every 10 seconds)");
   }
 
   stop() {
@@ -63,14 +63,14 @@ class GangMonitor {
           );
         }
 
-        // Check for rank changes (only rank changes, not XP)
-        const rankChanges = changes.filter((change) => change.rankChange !== 0);
+        // Check for XP changes (XP changes that affect rank)
+        const xpChanges = changes.filter((change) => change.xpChange !== 0);
 
-        if (rankChanges.length > 0) {
-          console.log(`📈 ${rankChanges.length} rank changes detected!`);
+        if (xpChanges.length > 0) {
+          console.log(`📈 ${xpChanges.length} XP changes detected!`);
 
-          // Send rank change alerts
-          for (const change of rankChanges) {
+          // Send XP change alerts (but show rank change direction)
+          for (const change of xpChanges) {
             await this.sendRankChangeAlert(change);
           }
         }
@@ -84,29 +84,31 @@ class GangMonitor {
     try {
       const { EmbedBuilder } = require("discord.js");
 
-      const isUp = change.rankChange < 0; // Negative rank change means going up
+      const isUp = change.rankChange < 0; // Negative rank change means going up (better rank)
       const direction = isUp ? "📈" : "📉";
       const directionText = isUp ? "صعود کرد" : "نزول کرد";
       const color = isUp ? 0x00ff00 : 0xff0000;
       const emoji = isUp ? "🎉" : "😔";
 
       const embed = new EmbedBuilder()
-        .setTitle(`${emoji} ${direction} تغییر رنک گنگ ${direction}`)
+        .setTitle(`${emoji} ${direction} تغییر XP گنگ ${direction}`)
         .setDescription(`**${change.gang_name}** ${directionText}!`)
         .setColor(color)
         .addFields(
           {
-            name: "🏆 تغییرات رنک",
+            name: "💎 تغییرات XP",
+            value: `**قبل:** ${change.oldXp.toLocaleString()}\n**بعد:** ${change.newXp.toLocaleString()}\n**تغییر:** ${
+              change.xpChange > 0 ? "+" : ""
+            }${change.xpChange.toLocaleString()}`,
+            inline: true,
+          },
+          {
+            name: "🏆 رنک",
             value: `**قبل:** #${change.oldRank}\n**بعد:** #${
               change.newRank
             }\n**تغییر:** ${change.rankChange > 0 ? "+" : ""}${
               change.rankChange
             }`,
-            inline: true,
-          },
-          {
-            name: "💎 Total XP",
-            value: `${change.newXp.toLocaleString()}`,
             inline: true,
           },
           {
@@ -134,19 +136,19 @@ class GangMonitor {
                 ephemeral: true,
               });
               console.log(
-                `📢 Sent rank change alert for ${change.gang_name} in channel ${channelId}`
+                `📢 Sent XP change alert for ${change.gang_name} in channel ${channelId}`
               );
             }
           } catch (error) {
             console.log(
-              `❌ Error sending rank alert to channel ${channelId}:`,
+              `❌ Error sending XP alert to channel ${channelId}:`,
               error.message
             );
           }
         }
       }
     } catch (error) {
-      console.error("❌ Error sending rank change alert:", error);
+      console.error("❌ Error sending XP change alert:", error);
     }
   }
 

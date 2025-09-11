@@ -469,6 +469,9 @@ class GangTracker {
             task2Completed: false,
             task1Xp: 0,
             task2Xp: 0,
+            // Accumulators to avoid missing split gains across polls
+            task1AccumXp: 0,
+            task2AccumXp: 0,
           };
           this.dailyXp.push(gangDailyXp);
         }
@@ -480,26 +483,38 @@ class GangTracker {
         const iranTime = new Date(now.getTime() + 3.5 * 60 * 60 * 1000);
         const hour = iranTime.getHours();
 
-        // Task completion logic - if gang gains exactly 500 XP in one update
-        if (change.xpChange === 500) {
-          if (hour >= 7 && hour < 18) {
-            // Task 1 time (7 AM - 6 PM Iran time) - exactly 500 XP
-            gangDailyXp.task1Xp += change.xpChange;
-            gangDailyXp.task1Completed = true;
-            console.log(
-              `✅ Task 1 completed for ${
-                change.gang_name
-              } at Iran time: ${iranTime.toLocaleString()}`
-            );
-          } else {
-            // Task 2 time (6 PM - 7 AM Iran time) - exactly 500 XP
-            gangDailyXp.task2Xp += change.xpChange;
-            gangDailyXp.task2Completed = true;
-            console.log(
-              `✅ Task 2 completed for ${
-                change.gang_name
-              } at Iran time: ${iranTime.toLocaleString()}`
-            );
+        // Task completion logic - cumulative within period (avoid missing due to polling)
+        if (hour >= 7 && hour < 18) {
+          // Task 1 window
+          if (!gangDailyXp.task1Completed) {
+            gangDailyXp.task1AccumXp =
+              (gangDailyXp.task1AccumXp || 0) + change.xpChange;
+            if (gangDailyXp.task1AccumXp >= 500) {
+              gangDailyXp.task1Completed = true;
+              // Record exactly 500 as the task XP credit
+              gangDailyXp.task1Xp = 500;
+              console.log(
+                `✅ Task 1 completed for ${change.gang_name} (cumulative ${
+                  gangDailyXp.task1AccumXp
+                }) at Iran time: ${iranTime.toLocaleString()}`
+              );
+            }
+          }
+        } else {
+          // Task 2 window
+          if (!gangDailyXp.task2Completed) {
+            gangDailyXp.task2AccumXp =
+              (gangDailyXp.task2AccumXp || 0) + change.xpChange;
+            if (gangDailyXp.task2AccumXp >= 500) {
+              gangDailyXp.task2Completed = true;
+              // Record exactly 500 as the task XP credit
+              gangDailyXp.task2Xp = 500;
+              console.log(
+                `✅ Task 2 completed for ${change.gang_name} (cumulative ${
+                  gangDailyXp.task2AccumXp
+                }) at Iran time: ${iranTime.toLocaleString()}`
+              );
+            }
           }
         }
       }
