@@ -167,8 +167,18 @@ class GangTracker {
       }
 
       const gangs = response.data.tops;
-      console.log(`🌐 Successfully fetched ${gangs.length} gangs`);
-      return gangs;
+
+      // Sort gangs by XP in descending order and assign correct ranks
+      const sortedGangs = gangs.sort((a, b) => b.xp - a.xp);
+      sortedGangs.forEach((gang, index) => {
+        gang.level = gang.rank; // Keep original API rank as level
+        gang.rank = index + 1; // Calculate correct rank based on XP order
+      });
+
+      console.log(
+        `🌐 Successfully fetched ${gangs.length} gangs and calculated ranks`
+      );
+      return sortedGangs;
     } catch (error) {
       console.error("❌ Error fetching gang data:", error);
       throw error;
@@ -251,7 +261,7 @@ class GangTracker {
           levelChange: newGang.level,
           oldRank: 0,
           newRank: newGang.rank,
-          rankChange: newGang.rank,
+          rankChange: 0, // New gang has no rank change
           rank: newGang.rank,
           isNew: true,
         });
@@ -307,7 +317,7 @@ class GangTracker {
           levelChange: newGang.level,
           oldRank: 0,
           newRank: newGang.rank,
-          rankChange: newGang.rank,
+          rankChange: 0, // New gang has no rank change
           rank: newGang.rank,
           isNew: true,
         });

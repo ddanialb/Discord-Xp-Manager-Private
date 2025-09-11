@@ -419,10 +419,11 @@ class DiscordGangBot {
         index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : "🏅";
       const task1Status = gang.task1Completed ? "✅" : "❌";
       const task2Status = gang.task2Completed ? "✅" : "❌";
+      const displayRank = index + 1; // Use the sorted position as rank
 
       description += `${medal} **${gang.gang_name}**\n`;
       description += `   💎 Total XP: ${gang.xp.toLocaleString()} | Daily XP: ${gang.dailyXp.toLocaleString()} | Weekly XP: ${gang.weeklyXp.toLocaleString()} | Monthly XP: ${gang.monthlyXp.toLocaleString()}\n`;
-      description += `   🎯 Tasks: ${task1Status} ${task2Status} | Rank: #${gang.rank}\n\n`;
+      description += `   🎯 Tasks: ${task1Status} ${task2Status} | Rank: #${displayRank} | Level: ${gang.level}\n\n`;
     });
 
     description +=
