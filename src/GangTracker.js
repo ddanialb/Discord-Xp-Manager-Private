@@ -479,9 +479,6 @@ class GangTracker {
             task2Completed: false,
             task1Xp: 0,
             task2Xp: 0,
-            // Accumulators to avoid missing split gains across polls
-            task1AccumXp: 0,
-            task2AccumXp: 0,
           };
           this.dailyXp.push(gangDailyXp);
         }
@@ -493,38 +490,28 @@ class GangTracker {
         const iranTime = new Date(now.getTime() + 3.5 * 60 * 60 * 1000);
         const hour = iranTime.getHours();
 
-        // Task completion logic - cumulative within period (avoid missing due to polling)
+        // Task completion logic - only count when exactly 500 XP is added in a single update
         if (hour >= 7 && hour < 18) {
           // Task 1 window
-          if (!gangDailyXp.task1Completed) {
-            gangDailyXp.task1AccumXp =
-              (gangDailyXp.task1AccumXp || 0) + change.xpChange;
-            if (gangDailyXp.task1AccumXp >= 500) {
-              gangDailyXp.task1Completed = true;
-              // Record exactly 500 as the task XP credit
-              gangDailyXp.task1Xp = 500;
-              console.log(
-                `✅ Task 1 completed for ${change.gang_name} (cumulative ${
-                  gangDailyXp.task1AccumXp
-                }) at Iran time: ${iranTime.toLocaleString()}`
-              );
-            }
+          if (!gangDailyXp.task1Completed && change.xpChange === 500) {
+            gangDailyXp.task1Completed = true;
+            gangDailyXp.task1Xp = 500;
+            console.log(
+              `✅ Task 1 completed for ${
+                change.gang_name
+              } (exactly 500 XP added) at Iran time: ${iranTime.toLocaleString()}`
+            );
           }
         } else {
           // Task 2 window
-          if (!gangDailyXp.task2Completed) {
-            gangDailyXp.task2AccumXp =
-              (gangDailyXp.task2AccumXp || 0) + change.xpChange;
-            if (gangDailyXp.task2AccumXp >= 500) {
-              gangDailyXp.task2Completed = true;
-              // Record exactly 500 as the task XP credit
-              gangDailyXp.task2Xp = 500;
-              console.log(
-                `✅ Task 2 completed for ${change.gang_name} (cumulative ${
-                  gangDailyXp.task2AccumXp
-                }) at Iran time: ${iranTime.toLocaleString()}`
-              );
-            }
+          if (!gangDailyXp.task2Completed && change.xpChange === 500) {
+            gangDailyXp.task2Completed = true;
+            gangDailyXp.task2Xp = 500;
+            console.log(
+              `✅ Task 2 completed for ${
+                change.gang_name
+              } (exactly 500 XP added) at Iran time: ${iranTime.toLocaleString()}`
+            );
           }
         }
       }
