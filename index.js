@@ -422,7 +422,7 @@ class DiscordGangBot {
 
       description += `${medal} **${gang.gang_name}**\n`;
       description += `   💎 Total XP: ${gang.xp.toLocaleString()} | Daily XP: ${gang.dailyXp.toLocaleString()} | Weekly XP: ${gang.weeklyXp.toLocaleString()} | Monthly XP: ${gang.monthlyXp.toLocaleString()}\n`;
-      description += `   🎯 Tasks: ${task1Status} ${task2Status} | Level: ${gang.rank}\n\n`;
+      description += `   🎯 Tasks: ${task1Status} ${task2Status} | Rank: #${gang.rank}\n\n`;
     });
 
     description +=

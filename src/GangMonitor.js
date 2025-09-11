@@ -63,14 +63,14 @@ class GangMonitor {
           );
         }
 
-        // Check for XP changes (XP changes that affect rank)
-        const xpChanges = changes.filter((change) => change.xpChange !== 0);
+        // Check for rank changes (only send alerts when rank actually changes)
+        const rankChanges = changes.filter((change) => change.rankChange !== 0);
 
-        if (xpChanges.length > 0) {
-          console.log(`📈 ${xpChanges.length} XP changes detected!`);
+        if (rankChanges.length > 0) {
+          console.log(`📈 ${rankChanges.length} rank changes detected!`);
 
-          // Send XP change alerts (but show rank change direction)
-          for (const change of xpChanges) {
+          // Send rank change alerts
+          for (const change of rankChanges) {
             await this.sendRankChangeAlert(change);
           }
         }

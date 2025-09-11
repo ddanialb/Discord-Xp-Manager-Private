@@ -18,10 +18,10 @@
     },
     {
       "gang_name": "Hawk",
-      "totalXp": 0,
-      "task1Completed": false,
+      "totalXp": 70,
+      "task1Completed": true,
       "task2Completed": false,
-      "task1Xp": 0,
+      "task1Xp": 500,
       "task2Xp": 0
     },
     {
