@@ -998,7 +998,26 @@ class GangTracker {
 
   // Test method to manually trigger daily reset (for testing purposes)
   forceDailyReset() {
-    console.log("🧪 Force triggering daily reset for testing...");
+    // Prevent duplicate reset if already performed for today's Iran date
+    const nowCheck = new Date();
+    const iranNow = new Date(nowCheck.getTime() + 3.5 * 60 * 60 * 1000);
+    const lastResetIran = this.lastResetDate
+      ? new Date(new Date(this.lastResetDate).getTime() + 3.5 * 60 * 60 * 1000)
+      : null;
+
+    if (
+      lastResetIran &&
+      iranNow.getFullYear() === lastResetIran.getFullYear() &&
+      iranNow.getMonth() === lastResetIran.getMonth() &&
+      iranNow.getDate() === lastResetIran.getDate()
+    ) {
+      console.log(
+        "⏭️ Daily reset already performed for today's Iran date. Skipping."
+      );
+      return false;
+    }
+
+    console.log("🧪 Force triggering daily reset...");
 
     // Generate daily report before reset
     this.generateDailyReport();

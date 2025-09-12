@@ -129,6 +129,41 @@ class DiscordGangBot {
       await this.updateGangsMessage();
     }, 30000); // 30 seconds
 
+    // Fallback scheduler: ensure resets/reports run even without stored /gangs messages
+    setInterval(async () => {
+      try {
+        if (!this.autoUpdateEnabled || this.gangsMessages.size === 0) {
+          await this.gangTracker.updateGangData();
+        }
+      } catch (error) {
+        console.error("❌ Error in fallback scheduler:", error);
+      }
+    }, 60000); // 1 minute
+
+    // Exact 7:00 AM Tehran time daily reset + DM via cron
+    try {
+      const { CronJob } = cron;
+      const job = new CronJob(
+        "0 0 7 * * *", // second minute hour day month dayOfWeek
+        async () => {
+          try {
+            console.log("⏰ Cron: Triggering exact 7:00 AM Tehran daily reset");
+            await this.gangTracker.forceDailyReset();
+          } catch (err) {
+            console.error("❌ Error during cron daily reset:", err);
+          }
+        },
+        null,
+        true,
+        "Asia/Tehran"
+      );
+
+      job.start();
+      console.log("🗓️ Cron job scheduled for 7:00 AM Asia/Tehran daily reset");
+    } catch (error) {
+      console.error("❌ Failed to schedule 7:00 AM cron job:", error);
+    }
+
     // Start monitoring after 10 seconds
     setTimeout(() => {
       this.gangMonitor.start();
