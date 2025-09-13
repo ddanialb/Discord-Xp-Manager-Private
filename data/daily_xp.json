@@ -2,7 +2,7 @@
   "dailyXp": [
     {
       "gang_name": "HellsAngels",
-      "totalXp": 0,
+      "totalXp": 1820,
       "task1Completed": false,
       "task2Completed": false,
       "task1Xp": 0,
@@ -10,7 +10,7 @@
     },
     {
       "gang_name": "Liquid",
-      "totalXp": 0,
+      "totalXp": 1610,
       "task1Completed": false,
       "task2Completed": false,
       "task1Xp": 0,
@@ -18,15 +18,15 @@
     },
     {
       "gang_name": "Hawk",
-      "totalXp": 0,
-      "task1Completed": true,
+      "totalXp": 3395,
+      "task1Completed": false,
       "task2Completed": false,
       "task1Xp": 0,
       "task2Xp": 0
     },
     {
       "gang_name": "Sopranos",
-      "totalXp": 0,
+      "totalXp": 1055,
       "task1Completed": false,
       "task2Completed": false,
       "task1Xp": 0,
@@ -34,7 +34,7 @@
     },
     {
       "gang_name": "Vendetta",
-      "totalXp": 0,
+      "totalXp": 385,
       "task1Completed": false,
       "task2Completed": false,
       "task1Xp": 0,
@@ -42,7 +42,7 @@
     },
     {
       "gang_name": "KingOfKing",
-      "totalXp": 0,
+      "totalXp": 970,
       "task1Completed": false,
       "task2Completed": false,
       "task1Xp": 0,
@@ -50,7 +50,7 @@
     },
     {
       "gang_name": "DARK",
-      "totalXp": 0,
+      "totalXp": 2645,
       "task1Completed": false,
       "task2Completed": false,
       "task1Xp": 0,
@@ -58,8 +58,8 @@
     },
     {
       "gang_name": "GHATELIN",
-      "totalXp": 0,
-      "task1Completed": true,
+      "totalXp": 1595,
+      "task1Completed": false,
       "task2Completed": false,
       "task1Xp": 0,
       "task2Xp": 0
@@ -74,7 +74,7 @@
     },
     {
       "gang_name": "SNO",
-      "totalXp": 0,
+      "totalXp": 50,
       "task1Completed": false,
       "task2Completed": false,
       "task1Xp": 0,
@@ -82,7 +82,7 @@
     },
     {
       "gang_name": "PERSIAN",
-      "totalXp": 0,
+      "totalXp": 60,
       "task1Completed": false,
       "task2Completed": false,
       "task1Xp": 0,
@@ -90,7 +90,7 @@
     },
     {
       "gang_name": "Silver",
-      "totalXp": 0,
+      "totalXp": 140,
       "task1Completed": false,
       "task2Completed": false,
       "task1Xp": 0,
@@ -122,7 +122,7 @@
     },
     {
       "gang_name": "Vision",
-      "totalXp": 0,
+      "totalXp": 5,
       "task1Completed": false,
       "task2Completed": false,
       "task1Xp": 0,
@@ -138,7 +138,7 @@
     },
     {
       "gang_name": "Vagos",
-      "totalXp": 0,
+      "totalXp": 1940,
       "task1Completed": false,
       "task2Completed": false,
       "task1Xp": 0,
@@ -146,7 +146,7 @@
     },
     {
       "gang_name": "Godal",
-      "totalXp": 0,
+      "totalXp": 540,
       "task1Completed": false,
       "task2Completed": false,
       "task1Xp": 0,
@@ -161,5 +161,5 @@
       "task2Xp": 0
     }
   ],
-  "lastUpdate": "2025-09-12T07:00:00.000Z"
+  "lastUpdate": "2025-01-27T12:00:00.000Z"
 }

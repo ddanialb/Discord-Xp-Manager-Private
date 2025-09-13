@@ -2,51 +2,51 @@
   "monthlyXp": [
     {
       "gang_name": "HellsAngels",
-      "totalXp": 1720
+      "totalXp": 8882
     },
     {
       "gang_name": "Liquid",
-      "totalXp": 1530
+      "totalXp": 7221
     },
     {
       "gang_name": "Hawk",
-      "totalXp": 6400
+      "totalXp": 27270
     },
     {
       "gang_name": "Sopranos",
-      "totalXp": 9625
+      "totalXp": 18025
     },
     {
       "gang_name": "Vendetta",
-      "totalXp": 620
+      "totalXp": 2266
     },
     {
       "gang_name": "KingOfKing",
-      "totalXp": 3715
+      "totalXp": 14628
     },
     {
       "gang_name": "DARK",
-      "totalXp": 4850
+      "totalXp": 14190
     },
     {
       "gang_name": "GHATELIN",
-      "totalXp": 6520
+      "totalXp": 14764
     },
     {
       "gang_name": "PeakyBlinders",
-      "totalXp": 100
+      "totalXp": 250
     },
     {
       "gang_name": "SNO",
-      "totalXp": 335
+      "totalXp": 915
     },
     {
       "gang_name": "PERSIAN",
-      "totalXp": 1385
+      "totalXp": 3570
     },
     {
       "gang_name": "Silver",
-      "totalXp": 2030
+      "totalXp": 3704
     },
     {
       "gang_name": "Brotherhood",
@@ -54,7 +54,7 @@
     },
     {
       "gang_name": "Avengers",
-      "totalXp": 0
+      "totalXp": 1078
     },
     {
       "gang_name": "Horizon",
@@ -62,19 +62,19 @@
     },
     {
       "gang_name": "Vision",
-      "totalXp": 0
+      "totalXp": 520
     },
     {
       "gang_name": "Rebel",
-      "totalXp": 25
+      "totalXp": 50
     },
     {
       "gang_name": "Vagos",
-      "totalXp": 2050
+      "totalXp": 6035
     },
     {
       "gang_name": "Godal",
-      "totalXp": 740
+      "totalXp": 7335
     },
     {
       "gang_name": "ScorPion",
@@ -82,5 +82,5 @@
     }
   ],
   "lastMonthlyResetDate": "2025-01-01T07:00:00.000Z",
-  "lastUpdate": "2025-09-12T07:05:00.000Z"
+  "lastUpdate": "2025-01-27T12:00:00.000Z"
 }

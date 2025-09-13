@@ -492,7 +492,7 @@ class GangTracker {
 
         // Task completion logic - only count when exactly 500 XP is added in a single update
         if (hour >= 7 && hour < 18) {
-          // Task 1 window
+          // Task 1 window: 7 AM - 6 PM (Iran time)
           if (!gangDailyXp.task1Completed && change.xpChange === 500) {
             gangDailyXp.task1Completed = true;
             gangDailyXp.task1Xp = 500;
@@ -503,7 +503,7 @@ class GangTracker {
             );
           }
         } else {
-          // Task 2 window
+          // Task 2 window: 6 PM - 7 AM (Iran time)
           if (!gangDailyXp.task2Completed && change.xpChange === 500) {
             gangDailyXp.task2Completed = true;
             gangDailyXp.task2Xp = 500;
