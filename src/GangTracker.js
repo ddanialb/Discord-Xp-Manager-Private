@@ -21,10 +21,15 @@ class GangTracker {
   }
 
   async loadData() {
-    await this.loadGangData();
-    await this.loadDailyXpData();
-    await this.loadWeeklyXpData();
-    await this.loadMonthlyXpData();
+    // Don't load any existing data - start fresh every time
+    console.log("🔄 Starting fresh - no data loaded from storage");
+    this.gangs = [];
+    this.dailyXp = [];
+    this.weeklyXp = [];
+    this.monthlyXp = [];
+    this.lastResetDate = null;
+    this.lastWeeklyResetDate = null;
+    this.lastMonthlyResetDate = null;
   }
 
   async loadGangData() {
@@ -195,6 +200,23 @@ class GangTracker {
 
       // Always check for resets, regardless of changes
       this.checkAllResets();
+
+      // If this is the first load (no old data), initialize daily XP for all gangs
+      if (oldGangs.length === 0) {
+        console.log("🔄 First load - initializing daily XP data for all gangs");
+        this.dailyXp = newGangs.map((gang) => ({
+          gang_name: gang.gang_name,
+          totalXp: 0,
+          task1Completed: false,
+          task2Completed: false,
+          task1Xp: 0,
+          task2Xp: 0,
+        }));
+        await this.saveDailyXpData();
+        console.log(
+          `✅ Initialized daily XP data for ${this.dailyXp.length} gangs`
+        );
+      }
 
       const changes = this.compareGangDataWithOld(newGangs, oldGangs);
       if (changes.length > 0) {
