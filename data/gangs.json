@@ -17,14 +17,14 @@
     {
       "gang_name": "Hawk",
       "logo": "https://discord.com/channels/1366079686291230774/1366080610988462262/1367947664972582914",
-      "xp": 800173,
+      "xp": 800203,
       "rank": 3,
       "level": 26
     },
     {
       "gang_name": "Sopranos",
       "logo": "https://cdn.discordapp.com/attachments/1278098155472158781/1300543858794303649/aslipng.png?ex=6723339a&is=6721e21a&hm=2333cc009c2ffdce9cf08051ae75e1f7a4f396e0590e3b53ccdb6d2c8df0a529&",
-      "xp": 693452,
+      "xp": 693652,
       "rank": 4,
       "level": 25
     },
@@ -38,7 +38,7 @@
     {
       "gang_name": "KingOfKing",
       "logo": "https://cdn.discordapp.com/attachments/1277352060781858838/1341848429713948712/KING_OF_KING1.png?ex=67f0d67b&is=67ef84fb&hm=bfb8665d08291d0b7203ec70d04d8333d687656d396fdde34c5aa5736d323e0d&",
-      "xp": 553494,
+      "xp": 553544,
       "rank": 6,
       "level": 23
     },
@@ -94,7 +94,7 @@
     {
       "gang_name": "Avengers",
       "logo": "https://cdn.discordapp.com/attachments/1189682712336924782/1388863140309110887/Avengers.jpg?ex=68632fd8&is=6861de58&hm=cbb557154a2eb2e7da7313148c4e45c9a79ac5f91176085c56d07bb040c34bb4&",
-      "xp": 363196,
+      "xp": 363241,
       "rank": 14,
       "level": 19
     },
@@ -141,6 +141,6 @@
       "level": 13
     }
   ],
-  "lastResetDate": null,
-  "lastUpdate": "2025-09-14T12:06:45.235Z"
+  "lastResetDate": "2025-09-14T12:26:02.000Z",
+  "lastUpdate": "2025-09-14T12:26:51.410Z"
 }
