@@ -340,25 +340,39 @@ class GangTracker {
   }
 
   checkDailyReset() {
-    // Get Iran time (UTC+3:30)
+    // Get Iran time using proper timezone
     const now = new Date();
-    const iranTime = new Date(now.getTime() + 3.5 * 60 * 60 * 1000); // UTC+3:30
+    const iranTime = new Date(
+      now.toLocaleString("en-US", { timeZone: "Asia/Tehran" })
+    );
+
+    console.log(`🕐 Current Iran time: ${iranTime.toLocaleString()}`);
 
     if (!this.lastResetDate) {
       this.lastResetDate = iranTime;
+      console.log("📅 First run - setting lastResetDate, no reset performed");
       return false; // Don't reset on first run
     }
 
     const lastReset = new Date(this.lastResetDate);
-    const lastResetIran = new Date(lastReset.getTime() + 3.5 * 60 * 60 * 1000);
+    const lastResetIran = new Date(
+      lastReset.toLocaleString("en-US", { timeZone: "Asia/Tehran" })
+    );
 
-    // Check if it's 7 AM Iran time and a new day
+    // Check if it's exactly 7 AM Iran time and a new day
     const shouldReset =
       iranTime.getHours() === 7 &&
-      iranTime.getMinutes() < 1 && // Only reset in the first minute of 7 AM
+      iranTime.getMinutes() === 0 && // Reset exactly at 7:00 AM
       (iranTime.getDate() !== lastResetIran.getDate() ||
         iranTime.getMonth() !== lastResetIran.getMonth() ||
         iranTime.getFullYear() !== lastResetIran.getFullYear());
+
+    console.log(
+      `🔍 Reset check: Hour=${iranTime.getHours()}, Minute=${iranTime.getMinutes()}, ShouldReset=${shouldReset}`
+    );
+    console.log(
+      `📅 Last reset: ${lastResetIran.toLocaleString()}, Current: ${iranTime.toLocaleString()}`
+    );
 
     if (shouldReset) {
       console.log(
@@ -1000,9 +1014,15 @@ class GangTracker {
   forceDailyReset() {
     // Prevent duplicate reset if already performed for today's Iran date
     const nowCheck = new Date();
-    const iranNow = new Date(nowCheck.getTime() + 3.5 * 60 * 60 * 1000);
+    const iranNow = new Date(
+      nowCheck.toLocaleString("en-US", { timeZone: "Asia/Tehran" })
+    );
     const lastResetIran = this.lastResetDate
-      ? new Date(new Date(this.lastResetDate).getTime() + 3.5 * 60 * 60 * 1000)
+      ? new Date(
+          this.lastResetDate.toLocaleString("en-US", {
+            timeZone: "Asia/Tehran",
+          })
+        )
       : null;
 
     if (
@@ -1032,7 +1052,9 @@ class GangTracker {
     });
 
     const now = new Date();
-    const iranTime = new Date(now.getTime() + 3.5 * 60 * 60 * 1000);
+    const iranTime = new Date(
+      now.toLocaleString("en-US", { timeZone: "Asia/Tehran" })
+    );
     this.lastResetDate = iranTime;
     this.saveDailyXpData();
 
