@@ -1034,6 +1034,15 @@ app.get("/", (req, res) => {
   res.send("✅ Discord Gang Tracker is running");
 });
 
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "healthy",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    bot_status: bot.client.isReady() ? "connected" : "disconnected"
+  });
+});
+
 app.listen(port, "0.0.0.0", () => {
   console.log(`🌐 Express server listening on 0.0.0.0:${port}`);
 });

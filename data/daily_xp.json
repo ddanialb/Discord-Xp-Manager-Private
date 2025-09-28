@@ -9,7 +9,7 @@
       "task2Xp": 0
     },
     {
-      "gang_name": "Liquid",
+      "gang_name": "Hawk",
       "totalXp": 0,
       "task1Completed": false,
       "task2Completed": false,
@@ -17,7 +17,7 @@
       "task2Xp": 0
     },
     {
-      "gang_name": "Hawk",
+      "gang_name": "Liquid",
       "totalXp": 0,
       "task1Completed": false,
       "task2Completed": false,
@@ -129,7 +129,7 @@
       "task2Xp": 0
     },
     {
-      "gang_name": "Rebel",
+      "gang_name": "Vagos",
       "totalXp": 0,
       "task1Completed": false,
       "task2Completed": false,
@@ -137,7 +137,7 @@
       "task2Xp": 0
     },
     {
-      "gang_name": "Vagos",
+      "gang_name": "Rebel",
       "totalXp": 0,
       "task1Completed": false,
       "task2Completed": false,
@@ -153,7 +153,7 @@
       "task2Xp": 0
     },
     {
-      "gang_name": "ScorPion",
+      "gang_name": "Kraken",
       "totalXp": 0,
       "task1Completed": false,
       "task2Completed": false,
@@ -161,5 +161,5 @@
       "task2Xp": 0
     }
   ],
-  "lastUpdate": "2025-09-14T12:26:36.954Z"
+  "lastUpdate": "2025-09-28T22:34:59.372Z"
 }
