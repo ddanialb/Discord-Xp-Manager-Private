@@ -1,6 +1,7 @@
 const axios = require("axios");
 const fs = require("fs-extra");
 const path = require("path");
+const cloudscraper = require("cloudscraper");
 
 class GangTracker {
   constructor() {
@@ -148,30 +149,28 @@ class GangTracker {
       await fs.writeJson(this.monthlyXpFile, data, { spaces: 2 });
       console.log("💾 Monthly XP data saved successfully");
     } catch (error) {
-      console.error("❌ Error saving monthly XP data:", error);
+      console.error(" Error saving monthly XP data:", error);
     }
   }
 
   async fetchGangData() {
     try {
-      console.log("📡 Fetching gang data...");
-      const response = await axios.get(this.apiUrl, {
+      console.log(" Fetching gang data...");
+      const body = await cloudscraper.get({
+        uri: this.apiUrl,
+        json: true,
         timeout: 10000,
         headers: {
           "User-Agent": "Discord Gang Tracker Bot",
-          Accept: "application/json",
+          Accept: "application/json, text/javascript, */*; q=0.01",
         },
       });
 
-      if (
-        !response.data ||
-        !response.data.tops ||
-        !Array.isArray(response.data.tops)
-      ) {
+      if (!body || !body.tops || !Array.isArray(body.tops)) {
         throw new Error("Invalid API response format");
       }
 
-      const gangs = response.data.tops;
+      const gangs = body.tops;
 
       // Sort gangs by XP in descending order and assign correct ranks
       const sortedGangs = gangs.sort((a, b) => b.xp - a.xp);
