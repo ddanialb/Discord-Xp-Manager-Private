@@ -273,29 +273,33 @@ class DiscordGangBot {
       const sortedGangs = gangsWithXp.sort((a, b) => b.xp - a.xp);
 
       const embed = new EmbedBuilder()
-        .setTitle("📋 Gang List by XP")
+        .setTitle("🏴‍☠️ Gang Rankings 🏴‍☠️")
         .setColor(0x9b59b6)
+        .setThumbnail("https://cdn.discordapp.com/attachments/1269782244164374679/1458543433244475667/High-Gif.gif?ex=696005ec&is=695eb46c&hm=8c53cd675be6f6be2a2df3d3d368f6ee8f12fcf88fcf7b679275617265e8e69b&")
         .setTimestamp()
-        .setFooter({ text: "• By Agha Dani" });
+        .setFooter({ text: "By Agha Dani" });
 
-      let description = "```\n";
-      description += "┌────┬────────────────────┬──────────────┐\n";
-      description += "│ #  │ Gang Name          │ XP           │\n";
-      description += "├────┼────────────────────┼──────────────┤\n";
+      let description = "";
+      const medals = ["👑", "🥈", "🥉"];
 
       sortedGangs.forEach((gang, index) => {
-        const rank = String(index + 1).padStart(2, " ");
-        const name = gang.gang_name.padEnd(18, " ").slice(0, 18);
-        const xp = gang.xp.toLocaleString().padStart(12, " ");
-        description += `│ ${rank} │ ${name} │ ${xp} │\n`;
+        const medal = index < 3 ? medals[index] : `**#${index + 1}**`;
+        const gangEmoji = gang.gang_name === "DARK" ? "🖤 " : "";
+        const task1 = gang.task1Completed ? "✅" : "❌";
+        const task2 = gang.task2Completed ? "✅" : "❌";
+        
+        description += `${medal} **${gangEmoji}${gang.gang_name}**\n`;
+        description += `💎 **Total XP: __${gang.xp.toLocaleString()}__** | Daily: ${gang.dailyXp.toLocaleString()} | Weekly: ${gang.weeklyXp?.toLocaleString() || 0}\n`;
+        description += `Tasks: ${task1}${task2} | Level: ${gang.level}\n`;
+        description += index < sortedGangs.length - 1 ? "───────────────────────\n" : "";
       });
-
-      description += "└────┴────────────────────┴──────────────┘\n";
-      description += "```";
 
       embed.setDescription(description);
 
       const totalXp = sortedGangs.reduce((sum, g) => sum + g.xp, 0);
+      const totalDaily = sortedGangs.reduce((sum, g) => sum + g.dailyXp, 0);
+      const activeGangs = sortedGangs.filter(g => g.dailyXp > 0).length;
+      
       embed.addFields(
         {
           name: "🏆 Top Gang",
@@ -303,13 +307,13 @@ class DiscordGangBot {
           inline: true,
         },
         {
-          name: "📊 Stats",
-          value: `**Total Gangs:** ${sortedGangs.length}\n**Total XP:** ${totalXp.toLocaleString()}`,
+          name: "📊 Server Stats",
+          value: `**Total Gangs:** ${sortedGangs.length}\n**Combined XP:** ${totalXp.toLocaleString()}\n**Today's XP:** ${totalDaily.toLocaleString()}`,
           inline: true,
         },
         {
-          name: "⏰ Last Update",
-          value: `<t:${Math.floor(Date.now() / 1000)}:R>`,
+          name: "⚡ Activity",
+          value: `**Active Today:** ${activeGangs}/${sortedGangs.length}\n**Updated:** <t:${Math.floor(Date.now() / 1000)}:R>`,
           inline: true,
         }
       );
@@ -512,16 +516,13 @@ class DiscordGangBot {
     const medals = ["👑", "🥈", "🥉"];
     
     sortedGangs.slice(0, 3).forEach((gang, index) => {
-      const task1 = gang.task1Completed ? "✅" : "⬜";
-      const task2 = gang.task2Completed ? "✅" : "⬜";
-      const progressBar = this.createProgressBar(gang.dailyXp, 1000);
-      const gangEmoji = gang.gang_name.toLowerCase().includes("dark") ? "🖤 " : "";
+      const task1 = gang.task1Completed ? "✅" : "❌";
+      const task2 = gang.task2Completed ? "✅" : "❌";
+      const gangEmoji = gang.gang_name === "DARK" ? "🖤 " : "";
       
-      description += `${medals[index]} **#${index + 1} ${gangEmoji}${gang.gang_name}**\n`;
-      description += `┃ 💎 \`${gang.xp.toLocaleString().padStart(10)}\` XP\n`;
-      description += `┃ 📈 Daily: \`${gang.dailyXp.toLocaleString().padStart(6)}\` ${progressBar}\n`;
-      description += `┃ 🎯 Tasks: ${task1}${task2} │ Lvl: ${gang.level}\n`;
-      description += `┗━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+      description += `${medals[index]} **${gangEmoji}${gang.gang_name}**\n`;
+      description += `💎 **Total XP: __${gang.xp.toLocaleString()}__** | Daily XP: ${gang.dailyXp.toLocaleString()} | Weekly XP: ${gang.weeklyXp?.toLocaleString() || 0} | Monthly XP: ${gang.monthlyXp?.toLocaleString() || 0}\n`;
+      description += `Tasks: ${task1}${task2} | Rank: #${index + 1} | Level: ${gang.level}\n\n`;
     });
 
     if (sortedGangs.length > 3) {
@@ -529,12 +530,13 @@ class DiscordGangBot {
       
       sortedGangs.slice(3).forEach((gang, index) => {
         const rank = index + 4;
-        const task1 = gang.task1Completed ? "✅" : "⬜";
-        const task2 = gang.task2Completed ? "✅" : "⬜";
-        const gangEmoji = gang.gang_name.toLowerCase().includes("dark") ? "🖤 " : "";
+        const task1 = gang.task1Completed ? "✅" : "❌";
+        const task2 = gang.task2Completed ? "✅" : "❌";
+        const gangEmoji = gang.gang_name === "DARK" ? "🖤 " : "";
         
-        description += `**#${rank}** ${gangEmoji}${gang.gang_name}\n`;
-        description += `└ 💎 ${gang.xp.toLocaleString()} │ 📈 +${gang.dailyXp.toLocaleString()} │ ${task1}${task2}\n\n`;
+        description += `**${gangEmoji}${gang.gang_name}**\n`;
+        description += `💎 **Total XP: __${gang.xp.toLocaleString()}__** | Daily XP: ${gang.dailyXp.toLocaleString()} | Weekly XP: ${gang.weeklyXp?.toLocaleString() || 0} | Monthly XP: ${gang.monthlyXp?.toLocaleString() || 0}\n`;
+        description += `Tasks: ${task1}${task2} | Rank: #${rank} | Level: ${gang.level}\n\n`;
       });
     }
 
