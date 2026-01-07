@@ -117,11 +117,14 @@ class DiscordGangBot {
     try {
       console.log("🔄 Refreshing application (/) commands...");
 
+      const commandsJson = this.commands.map(cmd => cmd.toJSON());
+      
       await rest.put(Routes.applicationCommands(config.discord.clientId), {
-        body: this.commands,
+        body: commandsJson,
       });
 
       console.log("✅ Successfully reloaded application (/) commands.");
+      console.log(`📝 Registered commands: ${commandsJson.map(c => c.name).join(", ")}`);
     } catch (error) {
       console.error("❌ Error refreshing commands:", error);
       throw error;
@@ -551,7 +554,7 @@ class DiscordGangBot {
         name: "📊 Live Stats",
         value: 
           `🏆 **Total Gangs:** ${stats.totalGangs}\n` +
-          `� **Totaاl XP:** ${stats.totalXp.toLocaleString()}\n` +
+          `⚡ **Total XP:** ${stats.totalXp.toLocaleString()}\n` +
           `📈 **Average:** ${stats.avgXp.toLocaleString()}\n` +
           `🔥 **Active Today:** ${stats.activeGangs}`,
         inline: true,
