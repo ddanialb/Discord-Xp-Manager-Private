@@ -153,16 +153,22 @@ class GangTracker {
     }
   }
 
-  async fetchGangData() {
+  async fetchGangData(retryCount = 0) {
+    const maxRetries = 3;
+    const baseTimeout = 15000; // Increased timeout
+    
     try {
-      console.log(" Fetching gang data...");
+      console.log(`📡 Fetching gang data... (attempt ${retryCount + 1}/${maxRetries + 1})`);
+      
       const body = await cloudscraper.get({
         uri: this.apiUrl,
         json: true,
-        timeout: 10000,
+        timeout: baseTimeout + (retryCount * 5000), // Increase timeout with each retry
         headers: {
-          "User-Agent": "Discord Gang Tracker Bot",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
           Accept: "application/json, text/javascript, */*; q=0.01",
+          "Accept-Language": "en-US,en;q=0.9",
+          "Cache-Control": "no-cache",
         },
       });
 
@@ -184,7 +190,17 @@ class GangTracker {
       );
       return sortedGangs;
     } catch (error) {
-      console.error("❌ Error fetching gang data:", error);
+      // Retry on timeout or network errors
+      if (retryCount < maxRetries && 
+          (error.code === 'ETIMEDOUT' || error.code === 'ECONNRESET' || 
+           error.code === 'ECONNREFUSED' || error.message.includes('ETIMEDOUT'))) {
+        const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff: 1s, 2s, 4s
+        console.log(`⏳ Retry ${retryCount + 1}/${maxRetries} after ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return this.fetchGangData(retryCount + 1);
+      }
+      
+      console.error("❌ Error fetching gang data:", error.message || error);
       throw error;
     }
   }

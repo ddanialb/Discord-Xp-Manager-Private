@@ -19,14 +19,14 @@ class DiscordGangBot {
     });
 
     this.gangTracker = new GangTracker();
-    this.gangTracker.botInstance = this; // Set bot instance reference
+    this.gangTracker.botInstance = this;
     this.gangMonitor = new GangMonitor(this.client);
     this.commands = [];
 
     this.client.gangBot = this;
     this.gangsMessages = new Map();
     this.autoUpdateEnabled = true;
-    this.gangsUsers = new Set(); // Track users who used /gangs command
+    this.gangsUsers = new Set();
     this.setupCommands();
   }
 
@@ -39,7 +39,6 @@ class DiscordGangBot {
     this.client.on("interactionCreate", async (interaction) => {
       if (!interaction.isChatInputCommand()) return;
 
-      // Attempt to defer immediately to avoid token expiry on cold starts
       try {
         if (!interaction.deferred && !interaction.replied) {
           await interaction.deferReply().catch((error) => {
@@ -54,6 +53,9 @@ class DiscordGangBot {
         switch (interaction.commandName) {
           case "gangs":
             await this.handleGangsCommand(interaction);
+            break;
+          case "list":
+            await this.handleListCommand(interaction);
             break;
           case "gangsupdate":
             await this.handleGangsUpdateCommand(interaction);
@@ -90,6 +92,10 @@ class DiscordGangBot {
         .setDescription("Display all gangs with their current data"),
 
       new SlashCommandBuilder()
+        .setName("list")
+        .setDescription("List all gangs sorted by XP from highest to lowest"),
+
+      new SlashCommandBuilder()
         .setName("gangsupdate")
         .setDescription("Control auto-update of /gangs message")
         .addStringOption((option) =>
@@ -123,13 +129,11 @@ class DiscordGangBot {
   }
 
   setupScheduling() {
-    // Auto-update /gangs message every 30 seconds
-    // This will also handle daily/weekly/monthly resets when needed
     setInterval(async () => {
       await this.updateGangsMessage();
-    }, 30000); // 30 seconds
+    }, 30000);
 
-    // Fallback scheduler: ensure resets/reports run even without stored /gangs messages
+    
     setInterval(async () => {
       try {
         if (!this.autoUpdateEnabled || this.gangsMessages.size === 0) {
@@ -138,13 +142,13 @@ class DiscordGangBot {
       } catch (error) {
         console.error("❌ Error in fallback scheduler:", error);
       }
-    }, 60000); // 1 minute
+    }, 60000);
 
-    // Exact 7:00 AM Tehran time daily reset + DM via cron
+    
     try {
       const { CronJob } = cron;
       const job = new CronJob(
-        "0 0 7 * * *", // second minute hour day month dayOfWeek
+        "0 0 7 * * *",
         async () => {
           try {
             console.log("⏰ Cron: Triggering exact 7:00 AM Tehran daily reset");
@@ -164,7 +168,6 @@ class DiscordGangBot {
       console.error("❌ Failed to schedule 7:00 AM cron job:", error);
     }
 
-    // Start monitoring after 10 seconds
     setTimeout(() => {
       this.gangMonitor.start();
     }, 10000);
@@ -172,12 +175,10 @@ class DiscordGangBot {
 
   async handleGangsCommand(interaction) {
     try {
-      // Defer only if not already deferred by the global handler
       if (!interaction.deferred && !interaction.replied) {
         await interaction.deferReply();
       }
 
-      // Show loading message
       const loadingEmbed = new EmbedBuilder()
         .setTitle("🔄 Loading Gang Data...")
         .setDescription(
@@ -194,7 +195,6 @@ class DiscordGangBot {
 
       await interaction.editReply({ embeds: [loadingEmbed] });
 
-      // Update gang data first
       await this.gangTracker.updateGangData();
 
       const gangs = this.gangTracker.getGangs();
@@ -202,7 +202,6 @@ class DiscordGangBot {
 
       const message = await interaction.editReply({ embeds: embeds });
 
-      // Check if bot has permission to send messages in this channel before storing
       const channel = interaction.channel;
       const botMember = channel.guild?.members.cache.get(this.client.user.id);
       let hasPermissions = true;
@@ -214,10 +213,8 @@ class DiscordGangBot {
       }
 
       if (hasPermissions) {
-        // Store the message for this specific channel
         this.gangsMessages.set(interaction.channelId, message);
 
-        // Get channel name for better logging
         const channelName = interaction.channel.name || "Unknown";
         console.log(
           `📝 /gangs message stored for channel #${channelName} (${interaction.channelId})`
@@ -228,7 +225,6 @@ class DiscordGangBot {
         );
       }
 
-      // Track user who used /gangs command
       this.gangsUsers.add(interaction.user.id);
     } catch (error) {
       console.error("❌ Error in handleGangsCommand:", error);
@@ -251,6 +247,81 @@ class DiscordGangBot {
             "• Check your internet connection\n• Verify the API is accessible\n• Try again in a few moments",
           inline: false,
         })
+        .setFooter({ text: "By Agha Dani" });
+
+      try {
+        if (interaction.deferred || interaction.replied) {
+          await interaction.editReply({ embeds: [errorEmbed] });
+        } else {
+          await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+        }
+      } catch (replyError) {
+        console.error("❌ Error sending error reply:", replyError);
+      }
+    }
+  }
+
+  async handleListCommand(interaction) {
+    try {
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply();
+      }
+
+      await this.gangTracker.updateGangData();
+
+      const gangsWithXp = this.gangTracker.getGangsWithDailyXp();
+      const sortedGangs = gangsWithXp.sort((a, b) => b.xp - a.xp);
+
+      const embed = new EmbedBuilder()
+        .setTitle("📋 Gang List by XP")
+        .setColor(0x9b59b6)
+        .setTimestamp()
+        .setFooter({ text: "• By Agha Dani" });
+
+      let description = "```\n";
+      description += "┌────┬────────────────────┬──────────────┐\n";
+      description += "│ #  │ Gang Name          │ XP           │\n";
+      description += "├────┼────────────────────┼──────────────┤\n";
+
+      sortedGangs.forEach((gang, index) => {
+        const rank = String(index + 1).padStart(2, " ");
+        const name = gang.gang_name.padEnd(18, " ").slice(0, 18);
+        const xp = gang.xp.toLocaleString().padStart(12, " ");
+        description += `│ ${rank} │ ${name} │ ${xp} │\n`;
+      });
+
+      description += "└────┴────────────────────┴──────────────┘\n";
+      description += "```";
+
+      embed.setDescription(description);
+
+      const totalXp = sortedGangs.reduce((sum, g) => sum + g.xp, 0);
+      embed.addFields(
+        {
+          name: "🏆 Top Gang",
+          value: `**${sortedGangs[0]?.gang_name || "N/A"}**\n💎 ${sortedGangs[0]?.xp.toLocaleString() || 0} XP`,
+          inline: true,
+        },
+        {
+          name: "📊 Stats",
+          value: `**Total Gangs:** ${sortedGangs.length}\n**Total XP:** ${totalXp.toLocaleString()}`,
+          inline: true,
+        },
+        {
+          name: "⏰ Last Update",
+          value: `<t:${Math.floor(Date.now() / 1000)}:R>`,
+          inline: true,
+        }
+      );
+
+      await interaction.editReply({ embeds: [embed] });
+    } catch (error) {
+      console.error("❌ Error in handleListCommand:", error);
+
+      const errorEmbed = new EmbedBuilder()
+        .setTitle("❌ Error Loading Data")
+        .setDescription("Please try again in a few moments.")
+        .setColor(0xff0000)
         .setFooter({ text: "By Agha Dani" });
 
       try {
@@ -349,21 +420,17 @@ class DiscordGangBot {
 
   async updateGangsMessage() {
     if (!this.autoUpdateEnabled || this.gangsMessages.size === 0) {
-      return; // No messages to update or auto-update disabled
+      return;
     }
 
     try {
-      // Update gang data first
       await this.gangTracker.updateGangData();
 
-      // Get updated data
       const gangs = this.gangTracker.getGangs();
       const embeds = this.createGangsEmbeds(gangs);
 
-      // Update all stored messages
       for (const [channelId, message] of this.gangsMessages) {
         try {
-          // Check if bot has permission to send messages in this channel
           const channel = this.client.channels.cache.get(channelId);
           if (!channel) {
             console.log(
@@ -373,7 +440,6 @@ class DiscordGangBot {
             continue;
           }
 
-          // Check bot permissions in the channel
           const botMember = channel.guild?.members.cache.get(
             this.client.user.id
           );
@@ -393,7 +459,6 @@ class DiscordGangBot {
 
           await message.edit({ embeds: embeds });
 
-          // Get channel name for better logging
           const channelName = channel ? channel.name : "Unknown";
           console.log(
             `📝 /gangs message auto-updated in channel #${channelName} (${channelId})`
@@ -404,15 +469,12 @@ class DiscordGangBot {
             error
           );
 
-          // Handle different error types
           if (error.code === 10008 || error.code === 10003) {
-            // Message not found or channel not found
             this.gangsMessages.delete(channelId);
             console.log(
               `🗑️ Removed invalid message reference for channel ${channelId} (message/channel not found)`
             );
           } else if (error.code === 50001) {
-            // Missing access/permissions
             this.gangsMessages.delete(channelId);
             const channel = this.client.channels.cache.get(channelId);
             const channelName = channel ? channel.name : "Unknown";
@@ -420,7 +482,6 @@ class DiscordGangBot {
               `🗑️ Removed message reference for channel #${channelName} (${channelId}) - missing permissions`
             );
           } else if (error.code === 50013) {
-            // Missing permissions
             this.gangsMessages.delete(channelId);
             const channel = this.client.channels.cache.get(channelId);
             const channelName = channel ? channel.name : "Unknown";
@@ -439,56 +500,98 @@ class DiscordGangBot {
     const gangsWithDailyXp = this.gangTracker.getGangsWithDailyXp();
     const sortedGangs = gangsWithDailyXp.sort((a, b) => b.xp - a.xp);
 
-    // Create clean and simple embed
     const embed = new EmbedBuilder()
       .setTitle("🏴‍☠️ DiamondRP Gang Leaderboard 🏴‍☠️")
-      .setColor(0x00ff00)
+      .setColor(0x2f3136)
+      .setThumbnail("https://cdn.discordapp.com/attachments/1269782244164374679/1458543433244475667/High-Gif.gif?ex=696005ec&is=695eb46c&hm=8c53cd675be6f6be2a2df3d3d368f6ee8f12fcf88fcf7b679275617265e8e69b&")
       .setTimestamp()
-      .setFooter({ text: "By Agha Dani" });
+      .setFooter({ text: "🔄 Auto-update: 30s • By Agha Dani" });
 
-    // Create simple and clean leaderboard
     let description = "";
-
-    sortedGangs.forEach((gang, index) => {
-      const medal =
-        index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : "🏅";
-      const task1Status = gang.task1Completed ? "✅" : "❌";
-      const task2Status = gang.task2Completed ? "✅" : "❌";
-      const displayRank = index + 1; // Use the sorted position as rank
-
-      description += `${medal} **${gang.gang_name}**\n`;
-      description += `   💎 Total XP: ${gang.xp.toLocaleString()} | Daily XP: ${gang.dailyXp.toLocaleString()} | Weekly XP: ${gang.weeklyXp.toLocaleString()} | Monthly XP: ${gang.monthlyXp.toLocaleString()}\n`;
-      description += `   🎯 Tasks: ${task1Status} ${task2Status} | Rank: #${displayRank} | Level: ${gang.level}\n\n`;
+    
+    const medals = ["👑", "🥈", "🥉"];
+    
+    sortedGangs.slice(0, 3).forEach((gang, index) => {
+      const task1 = gang.task1Completed ? "✅" : "⬜";
+      const task2 = gang.task2Completed ? "✅" : "⬜";
+      const progressBar = this.createProgressBar(gang.dailyXp, 1000);
+      const gangEmoji = gang.gang_name.toLowerCase().includes("dark") ? "🖤 " : "";
+      
+      description += `${medals[index]} **#${index + 1} ${gangEmoji}${gang.gang_name}**\n`;
+      description += `┃ 💎 \`${gang.xp.toLocaleString().padStart(10)}\` XP\n`;
+      description += `┃ 📈 Daily: \`${gang.dailyXp.toLocaleString().padStart(6)}\` ${progressBar}\n`;
+      description += `┃ 🎯 Tasks: ${task1}${task2} │ Lvl: ${gang.level}\n`;
+      description += `┗━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
     });
 
-    description +=
-      "**🔄 Auto-updating every 30 seconds • Last updated:** <t:" +
-      Math.floor(Date.now() / 1000) +
-      ":R>";
+    if (sortedGangs.length > 3) {
+      description += "**━━━━━━ Other Gangs ━━━━━━**\n\n";
+      
+      sortedGangs.slice(3).forEach((gang, index) => {
+        const rank = index + 4;
+        const task1 = gang.task1Completed ? "✅" : "⬜";
+        const task2 = gang.task2Completed ? "✅" : "⬜";
+        const gangEmoji = gang.gang_name.toLowerCase().includes("dark") ? "🖤 " : "";
+        
+        description += `**#${rank}** ${gangEmoji}${gang.gang_name}\n`;
+        description += `└ 💎 ${gang.xp.toLocaleString()} │ 📈 +${gang.dailyXp.toLocaleString()} │ ${task1}${task2}\n\n`;
+      });
+    }
+
+    description += `\n**🔄 Last Update:** <t:${Math.floor(Date.now() / 1000)}:R>`;
 
     embed.setDescription(description);
 
-    // Add beautiful statistics
     const stats = this.calculateStats(sortedGangs);
+    
     embed.addFields(
       {
-        name: "📊 Live Statistics",
-        value: this.createStatsDisplay(stats),
+        name: "📊 Live Stats",
+        value: 
+          `🏆 **Total Gangs:** ${stats.totalGangs}\n` +
+          `� **Totaاl XP:** ${stats.totalXp.toLocaleString()}\n` +
+          `📈 **Average:** ${stats.avgXp.toLocaleString()}\n` +
+          `🔥 **Active Today:** ${stats.activeGangs}`,
         inline: true,
       },
       {
-        name: "🎯 Task Progress",
+        name: "🎯 Task Status",
         value: this.createTaskStats(sortedGangs),
         inline: true,
       },
       {
-        name: "⚡ Performance",
-        value: this.createPerformanceStats(sortedGangs),
+        name: "⚡ Top Performers",
+        value: this.createTopPerformers(sortedGangs),
         inline: true,
       }
     );
 
     return [embed];
+  }
+
+  createProgressBar(current, max) {
+    const percentage = Math.min(current / max, 1);
+    const filled = Math.round(percentage * 8);
+    const empty = 8 - filled;
+    return "█".repeat(filled) + "░".repeat(empty);
+  }
+
+  createTopPerformers(gangs) {
+    const topDaily = gangs.reduce(
+      (max, gang) => (gang.dailyXp > max.dailyXp ? gang : max),
+      gangs[0]
+    );
+    const topWeekly = gangs.reduce(
+      (max, gang) => (gang.weeklyXp > max.weeklyXp ? gang : max),
+      gangs[0]
+    );
+    
+    return (
+      `📈 **Daily:** ${topDaily?.gang_name || "N/A"}\n` +
+      `└ ${topDaily?.dailyXp.toLocaleString() || 0} XP\n` +
+      `📊 **Weekly:** ${topWeekly?.gang_name || "N/A"}\n` +
+      `└ ${topWeekly?.weeklyXp.toLocaleString() || 0} XP`
+    );
   }
 
   calculateStats(gangs) {
@@ -507,16 +610,6 @@ class DiscordGangBot {
     };
   }
 
-  createStatsDisplay(stats) {
-    return (
-      `🏆 **Total Gangs:** ${stats.totalGangs}\n` +
-      `💎 **Total XP:** ${stats.totalXp.toLocaleString()}\n` +
-      `📊 **Average XP:** ${stats.avgXp.toLocaleString()}\n` +
-      `🔥 **Active Today:** ${stats.activeGangs}\n` +
-      `👑 **Top Gang:** ${stats.topGang.gang_name}`
-    );
-  }
-
   createTaskStats(gangs) {
     const task1Completed = gangs.filter((gang) => gang.task1Completed).length;
     const task2Completed = gangs.filter((gang) => gang.task2Completed).length;
@@ -528,49 +621,8 @@ class DiscordGangBot {
     return (
       `🎯 **Task 1:** ${task1Completed}/${gangs.length}\n` +
       `🎯 **Task 2:** ${task2Completed}/${gangs.length}\n` +
-      `🏆 **Both Tasks:** ${bothCompleted}/${gangs.length}\n` +
-      `📈 **Completion Rate:** ${completionRate}%\n` +
-      `⏰ **Last Update:** <t:${Math.floor(Date.now() / 1000)}:R>`
-    );
-  }
-
-  createPerformanceStats(gangs) {
-    const topDaily = gangs.reduce(
-      (max, gang) => (gang.dailyXp > max.dailyXp ? gang : max),
-      gangs[0]
-    );
-    const topWeekly = gangs.reduce(
-      (max, gang) => (gang.weeklyXp > max.weeklyXp ? gang : max),
-      gangs[0]
-    );
-    const topMonthly = gangs.reduce(
-      (max, gang) => (gang.monthlyXp > max.monthlyXp ? gang : max),
-      gangs[0]
-    );
-    const avgDaily = Math.round(
-      gangs.reduce((sum, gang) => sum + gang.dailyXp, 0) / gangs.length
-    );
-    const avgWeekly = Math.round(
-      gangs.reduce((sum, gang) => sum + gang.weeklyXp, 0) / gangs.length
-    );
-    const avgMonthly = Math.round(
-      gangs.reduce((sum, gang) => sum + gang.monthlyXp, 0) / gangs.length
-    );
-
-    return (
-      `📈 **Top Daily:** ${
-        topDaily.gang_name
-      } (${topDaily.dailyXp.toLocaleString()})\n` +
-      `📊 **Top Weekly:** ${
-        topWeekly.gang_name
-      } (${topWeekly.weeklyXp.toLocaleString()})\n` +
-      `📅 **Top Monthly:** ${
-        topMonthly.gang_name
-      } (${topMonthly.monthlyXp.toLocaleString()})\n` +
-      `📉 **Avg Daily:** ${avgDaily.toLocaleString()}\n` +
-      `📊 **Avg Weekly:** ${avgWeekly.toLocaleString()}\n` +
-      `📅 **Avg Monthly:** ${avgMonthly.toLocaleString()}\n` +
-      `🔄 **Update Rate:** Every 30 seconds`
+      `🏆 **Both:** ${bothCompleted}/${gangs.length}\n` +
+      `📈 **Rate:** ${completionRate}%`
     );
   }
 
@@ -578,7 +630,6 @@ class DiscordGangBot {
     try {
       console.log("🚀 Starting Discord Gang Tracker Bot...");
 
-      // Register commands with retry logic
       let retryCount = 0;
       const maxRetries = 3;
 
@@ -602,13 +653,10 @@ class DiscordGangBot {
         }
       }
 
-      // Setup event handlers
       this.setupEventHandlers();
 
-      // Setup scheduling
       this.setupScheduling();
 
-      // Login with retry logic
       retryCount = 0;
       while (retryCount < maxRetries) {
         try {
@@ -666,7 +714,6 @@ class DiscordGangBot {
 
       console.log(`📤 Sending daily report to ${this.gangsUsers.size} users`);
 
-      // Create embed for the report
       const reportEmbed = new EmbedBuilder()
         .setTitle("📊 Daily Gang Report")
         .setDescription(
@@ -694,7 +741,6 @@ class DiscordGangBot {
         .setTimestamp()
         .setFooter({ text: "By Agha Dani" });
 
-      // Add top 3 daily performers
       const topDaily = report.dailyStats
         .sort((a, b) => b.totalXp - a.totalXp)
         .slice(0, 3);
@@ -715,7 +761,6 @@ class DiscordGangBot {
         });
       }
 
-      // Send to all tracked users
       let successCount = 0;
       let failCount = 0;
 
@@ -723,10 +768,8 @@ class DiscordGangBot {
         try {
           const user = await this.client.users.fetch(userId);
           if (user) {
-            // Send the embed
             await user.send({ embeds: [reportEmbed] });
 
-            // Also send the text file as attachment
             const fs = require("fs-extra");
             const path = require("path");
             const txtFile = path.join(
@@ -758,7 +801,6 @@ class DiscordGangBot {
             error.message
           );
 
-          // If user blocked the bot or doesn't allow DMs, remove from tracking
           if (error.code === 50007 || error.code === 50013) {
             this.gangsUsers.delete(userId);
             console.log(
@@ -791,7 +833,6 @@ class DiscordGangBot {
 
       console.log(`📤 Sending weekly report to ${this.gangsUsers.size} users`);
 
-      // Create embed for the report
       const reportEmbed = new EmbedBuilder()
         .setTitle("📊 Weekly Gang Report")
         .setDescription(
@@ -814,7 +855,6 @@ class DiscordGangBot {
         .setTimestamp()
         .setFooter({ text: "By Agha Dani" });
 
-      // Add top 5 weekly performers
       const topWeekly = report.weeklyStats
         .sort((a, b) => b.totalXp - a.totalXp)
         .slice(0, 5);
@@ -836,7 +876,6 @@ class DiscordGangBot {
         });
       }
 
-      // Send to all tracked users
       let successCount = 0;
       let failCount = 0;
 
@@ -844,10 +883,8 @@ class DiscordGangBot {
         try {
           const user = await this.client.users.fetch(userId);
           if (user) {
-            // Send the embed
             await user.send({ embeds: [reportEmbed] });
 
-            // Also send the text file as attachment
             const fs = require("fs-extra");
             const path = require("path");
             const txtFile = path.join(
@@ -879,7 +916,6 @@ class DiscordGangBot {
             error.message
           );
 
-          // If user blocked the bot or doesn't allow DMs, remove from tracking
           if (error.code === 50007 || error.code === 50013) {
             this.gangsUsers.delete(userId);
             console.log(
@@ -912,7 +948,6 @@ class DiscordGangBot {
 
       console.log(`📤 Sending monthly report to ${this.gangsUsers.size} users`);
 
-      // Create embed for the report
       const reportEmbed = new EmbedBuilder()
         .setTitle("📊 Monthly Gang Report")
         .setDescription(
@@ -935,7 +970,6 @@ class DiscordGangBot {
         .setTimestamp()
         .setFooter({ text: "By Agha Dani" });
 
-      // Add top 5 monthly performers
       const topMonthly = report.monthlyStats
         .sort((a, b) => b.totalXp - a.totalXp)
         .slice(0, 5);
@@ -957,7 +991,6 @@ class DiscordGangBot {
         });
       }
 
-      // Send to all tracked users
       let successCount = 0;
       let failCount = 0;
 
@@ -965,10 +998,8 @@ class DiscordGangBot {
         try {
           const user = await this.client.users.fetch(userId);
           if (user) {
-            // Send the embed
             await user.send({ embeds: [reportEmbed] });
 
-            // Also send the text file as attachment
             const fs = require("fs-extra");
             const path = require("path");
             const txtFile = path.join(
@@ -1003,7 +1034,6 @@ class DiscordGangBot {
             error.message
           );
 
-          // If user blocked the bot or doesn't allow DMs, remove from tracking
           if (error.code === 50007 || error.code === 50013) {
             this.gangsUsers.delete(userId);
             console.log(
@@ -1022,11 +1052,9 @@ class DiscordGangBot {
   }
 }
 
-// Start the bot
 const bot = new DiscordGangBot();
 bot.start();
 
-// ==================== Express keep-alive server =====================
 const app = express();
 const port = process.env.PORT || 10000;
 

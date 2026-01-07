@@ -6,9 +6,11 @@ class GangMonitor {
     this.client = client;
     this.gangTracker = new GangTracker();
     this.isRunning = false;
-    this.checkInterval = 10000; // 10 seconds
+    this.checkInterval = 15000; // 15 seconds (increased from 10 to reduce API load)
     this.intervalId = null;
     this.xpThreshold = 500; // Minimum XP change to report
+    this.consecutiveErrors = 0;
+    this.maxConsecutiveErrors = 5;
   }
 
   start() {
@@ -25,7 +27,7 @@ class GangMonitor {
       await this.checkForChanges();
     }, this.checkInterval);
 
-    console.log("✅ Gang monitoring started (checking every 10 seconds)");
+    console.log("✅ Gang monitoring started (checking every 15 seconds)");
   }
 
   stop() {
@@ -48,6 +50,9 @@ class GangMonitor {
   async checkForChanges() {
     try {
       const changes = await this.gangTracker.updateGangData();
+      
+      // Reset error counter on success
+      this.consecutiveErrors = 0;
 
       if (changes.length > 0) {
         console.log(`📊 Detected ${changes.length} gang changes`);
@@ -76,7 +81,18 @@ class GangMonitor {
         }
       }
     } catch (error) {
-      console.error("❌ Error checking for changes:", error);
+      this.consecutiveErrors++;
+      console.error(`❌ Error checking for changes (${this.consecutiveErrors}/${this.maxConsecutiveErrors}):`, error.message || error);
+      
+      // If too many consecutive errors, increase interval temporarily
+      if (this.consecutiveErrors >= this.maxConsecutiveErrors) {
+        console.log("⚠️ Too many errors, backing off for 60 seconds...");
+        this.stop();
+        setTimeout(() => {
+          this.consecutiveErrors = 0;
+          this.start();
+        }, 60000);
+      }
     }
   }
 
